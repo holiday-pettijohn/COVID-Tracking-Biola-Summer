@@ -1,0 +1,914 @@
+#LyX 2.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 544
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry true
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\use_minted 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\leftmargin 1cm
+\topmargin 1cm
+\rightmargin 1cm
+\bottommargin 1cm
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Section
+Pandemic Modeling - SIRD model
+\end_layout
+
+\begin_layout Itemize
+S(t): # susceptible of contracting the infection at time t; 
+\end_layout
+
+\begin_layout Itemize
+I(t): # infected at time t; 
+\end_layout
+
+\begin_layout Itemize
+R(t): # recovered from the disease up to time t; 
+\end_layout
+
+\begin_layout Itemize
+D(t): the cumulative # that dued due to disease up to time t.
+\end_layout
+
+\begin_layout Itemize
+P is the total population (assumed to be a constant)
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $q$
+\end_inset
+
+ is the fraction of the population that is susceptible (assumed to be a
+ constant)
+\end_layout
+
+\begin_layout Standard
+The interactions can be represented schematically as
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{array}{rcl}
+S+I & \longrightarrow^{\beta} & I+I\\
+I & \longrightarrow^{\gamma} & R\\
+I & \longrightarrow^{\nu} & D
+\end{array}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Continuous Time Model
+\end_layout
+
+\begin_layout Standard
+Time 
+\begin_inset Formula $t$
+\end_inset
+
+ is a continuous variable.
+ The differential equation model is given by
+\begin_inset Formula 
+\begin{equation}
+\begin{array}{rcl}
+\dot{S} & = & -\beta\frac{SI}{S+I}\\
+\dot{I} & = & \beta\frac{SI}{S+I}-\gamma I-\nu I\\
+\dot{R} & = & \gamma I\\
+\dot{D} & = & \nu I\\
+qP & = & S+I+R+D
+\end{array}\label{eq:SIRDode}
+\end{equation}
+
+\end_inset
+
+The ODE part we can rewrite as 
+\begin_inset Formula 
+\[
+\begin{array}{rcl}
+\left[\begin{array}{c}
+\dot{S}\\
+\dot{I}\\
+\dot{R}\\
+\dot{D}
+\end{array}\right] & = & \left[\begin{array}{ccc}
+-\frac{SI}{S+I} & 0 & 0\\
+\frac{SI}{S+I} & -I & -I\\
+0 & I & 0\\
+0 & 0 & I
+\end{array}\right]\left[\begin{array}{c}
+\beta\\
+\gamma\\
+\nu
+\end{array}\right]\end{array}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Let's denote 
+\begin_inset Formula $\boldsymbol{x}\left(t\right)=\left[\begin{array}{c}
+S\left(t\right)\\
+I\left(t\right)\\
+R\left(t\right)\\
+D\left(t\right)
+\end{array}\right]$
+\end_inset
+
+(the state), 
+\begin_inset Formula $\boldsymbol{\theta}=\left[\begin{array}{c}
+\beta\\
+\gamma\\
+\nu
+\end{array}\right]$
+\end_inset
+
+(the parameters of the model) and 
+\begin_inset Formula $\Phi=\left[\begin{array}{ccc}
+-\frac{SI}{S+I} & 0 & 0\\
+\frac{SI}{S+I} & -I & -I\\
+0 & I & 0\\
+0 & 0 & I
+\end{array}\right]$
+\end_inset
+
+ (the dynamics).
+ Then 
+\begin_inset CommandInset ref
+LatexCommand eqref
+reference "eq:SIRDode"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ is rewriten as
+\begin_inset Formula 
+\begin{equation}
+\dot{\boldsymbol{x}}\left(t\right)=\Phi\left(t;q\right)\boldsymbol{\theta}\label{eq:SIRDvectornotation}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+subject to 
+\begin_inset Formula $qP=S+I+R+D$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Subsection
+Discrete Time Model
+\end_layout
+
+\begin_layout Standard
+Time 
+\begin_inset Formula $t$
+\end_inset
+
+ is a discrete variable (i.e., 1,2,3,4...).
+ The difference version of 
+\begin_inset CommandInset ref
+LatexCommand eqref
+reference "eq:SIRDvectornotation"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ is given by
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\Delta\boldsymbol{x}\left(t\right)=\Phi\left(t;q\right)\boldsymbol{\theta}\label{eq:SIRDdiscretetime}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+where 
+\begin_inset Formula $\Delta\boldsymbol{x}\left(t\right)=\boldsymbol{x}\left(t+1\right)-\boldsymbol{x}\left(t\right)$
+\end_inset
+
+ and subject to 
+\begin_inset Formula $qP=S+I+R+D$
+\end_inset
+
+.
+ Note that the parameters 
+\begin_inset Formula $\boldsymbol{\omega}$
+\end_inset
+
+ are different from the parameters of the continuos model.
+\end_layout
+
+\begin_layout Subsection
+Parameter Estimation of the Discrete Time Model
+\end_layout
+
+\begin_layout Standard
+For a given 
+\begin_inset Formula $q$
+\end_inset
+
+ and each 
+\begin_inset Formula $t=0,1,2,\ldots,T$
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Itemize
+data available - for 
+\begin_inset Formula $t=0,1,2,\ldots,T$
+\end_inset
+
+ we have 
+\begin_inset Formula $I(t),R(t),D(t)$
+\end_inset
+
+.
+ 
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $S(t)=qP-I(t)-R(t)-D(t)$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+compute 
+\begin_inset Formula $\Delta\boldsymbol{x}\left(t\right)$
+\end_inset
+
+ and 
+\begin_inset Formula $\Phi\left(t;q\right)$
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Standard
+For each 
+\begin_inset Formula $t>0$
+\end_inset
+
+, and a forgetting factor 
+\begin_inset Formula $w\in\left(0,1\right]$
+\end_inset
+
+ (used 
+\begin_inset Formula $w=0.9$
+\end_inset
+
+ and 
+\begin_inset Formula $w=0.7$
+\end_inset
+
+)
+\end_layout
+
+\begin_layout Itemize
+build 
+\begin_inset Formula 
+\[
+\boldsymbol{y}=\left[\begin{array}{c}
+\sqrt{w^{T-1}}\Delta\boldsymbol{x}\left(1\right)\\
+\sqrt{w^{T-2}}\Delta\boldsymbol{x}\left(2\right)\\
+\vdots\\
+\sqrt{w^{T-t}}\Delta\boldsymbol{x}\left(t\right)\\
+\vdots\\
+\Delta\boldsymbol{x}\left(T\right)
+\end{array}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+build
+\begin_inset Formula 
+\[
+A=\left[\begin{array}{c}
+\sqrt{w^{T-1}}\Phi\left(1;q\right)\\
+\sqrt{w^{T-2}}\Phi\left(2;q\right)\\
+\vdots\\
+\sqrt{w^{T-t}}\Phi\left(t;q\right)\\
+\vdots\\
+\Phi\left(T;q\right)
+\end{array}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+minimize the cost function
+\begin_inset Formula 
+\begin{equation}
+\min_{\theta}f\left(q,\boldsymbol{\theta}\right)=\min_{\theta}\frac{1}{T}\left\Vert \boldsymbol{y}-A\boldsymbol{\theta}\right\Vert _{2}^{2}+\lambda\left\Vert \theta\right\Vert _{1}\label{eq:parameterEstimationSIRD}
+\end{equation}
+
+\end_inset
+
+with 
+\begin_inset Formula $\lambda=10$
+\end_inset
+
+.
+ 
+\end_layout
+
+\begin_layout Standard
+Note that 
+\begin_inset Formula 
+\[
+\frac{1}{T}\left\Vert \boldsymbol{y}-A\boldsymbol{\theta}\right\Vert _{2}=\frac{1}{T}\sum_{t=1}^{T}w^{T-t}\left\Vert \Delta\boldsymbol{x}\left(t\right)-\Phi\left(t;q\right)\boldsymbol{\theta}\right\Vert _{2}^{2}
+\]
+
+\end_inset
+
+ captures how much each measurement 
+\begin_inset Formula $\Delta\boldsymbol{x}\left(t\right)$
+\end_inset
+
+ differs from the prediction 
+\begin_inset Formula $\Phi\left(t;q\right)\boldsymbol{\theta}$
+\end_inset
+
+(if we were to use the parameters 
+\begin_inset Formula $\boldsymbol{\theta}$
+\end_inset
+
+) by having the most recent measurements worth more; 
+\begin_inset Formula $\lambda\left\Vert \theta\right\Vert _{1}$
+\end_inset
+
+ is a regularitation term on the parameters.
+ 
+\end_layout
+
+\begin_layout Standard
+Equation 
+\begin_inset CommandInset ref
+LatexCommand eqref
+reference "eq:parameterEstimationSIRD"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ can be solved in python using
+\end_layout
+
+\begin_layout Standard
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+from sklearn import linear_model
+\end_layout
+
+\begin_layout Plain Layout
+
+clf = linear_model.Lasso(alpha=lambda/2, fit_intercept=false, positive=true)
+\end_layout
+
+\begin_layout Plain Layout
+
+clf.fit(A, y)
+\end_layout
+
+\begin_layout Plain Layout
+
+print(clf.coef_)
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Model with Time Varying Parameters 
+\end_layout
+
+\begin_layout Standard
+The parameters 
+\begin_inset Formula $\beta,\gamma,\nu$
+\end_inset
+
+ are time varying.
+ Let represent them as a linear combination of basis functions.
+ Let 
+\begin_inset Formula $\{b_{i}(t)\}$
+\end_inset
+
+, 
+\begin_inset Formula $\{g_{i}(t)\}$
+\end_inset
+
+, 
+\begin_inset Formula $\{m_{i}(t)\}$
+\end_inset
+
+ be three sets of basis functions and define 
+\begin_inset Formula 
+\[
+\begin{array}{rcl}
+B(t) & = & \left[b_{1}(t),\ldots,b_{n_{1}}(t)\right]\\
+\boldsymbol{\beta} & = & \left[\beta_{1},\ldots,\beta_{n_{1}}\right]\\
+G(t) & = & \left[g_{1}(t),\ldots,g_{n_{2}}(t)\right]\\
+\boldsymbol{\gamma} & = & \left[\gamma_{1},\ldots,\gamma_{n_{2}}\right]\\
+M(t) & = & \left[m_{1}(t),\ldots,m_{n_{3}}(t)\right]\\
+\boldsymbol{\nu} & = & \left[\nu_{1},\ldots,\nu_{n_{1}}\right]\\
+F(t) & = & \frac{S(t)I(t)}{S(t)+I(t)}
+\end{array}
+\]
+
+\end_inset
+
+then 
+\begin_inset CommandInset ref
+LatexCommand eqref
+reference "eq:SIRDdiscretetime"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ can be expressed as
+\begin_inset Formula 
+\[
+\begin{array}{rcl}
+\dot{\boldsymbol{x}}(t)=\left[\begin{array}{c}
+\dot{S}\\
+\dot{I}\\
+\dot{R}\\
+\dot{D}
+\end{array}\right] & = & \left[\begin{array}{ccccccccc}
+-b_{1}F & \cdots & -b_{n_{1}}F & 0 & \cdots & 0 & 0 & \cdots & 0\\
+b_{1}F & \cdots & b_{n_{1}}F & -g_{1}I & \cdots & -g_{n_{2}}I & -m_{1}I & \cdots & -m_{n_{2}}I\\
+0 & \cdots & 0 & g_{1}I & \cdots & g_{n_{2}}I & 0 & \cdots & 0\\
+0 & \cdots & 0 & 0 & \cdots & 0 & m_{1}I & \cdots & m_{n_{2}}I
+\end{array}\right]\left[\begin{array}{c}
+\beta_{1}\\
+\vdots\\
+\beta_{n_{1}}\\
+\gamma_{1}\\
+\vdots\\
+\gamma_{n_{2}}\\
+\nu_{1}\\
+\vdots\\
+\nu_{n_{3}}
+\end{array}\right]\\
+ & = & \left[\begin{array}{ccc}
+-BF & \boldsymbol{0} & \boldsymbol{0}\\
+BF & -GI & -MI\\
+\boldsymbol{0} & GI & 0\\
+\boldsymbol{0} & \boldsymbol{0} & MI
+\end{array}\right]\left[\begin{array}{c}
+\boldsymbol{\beta}\\
+\boldsymbol{\gamma}\\
+\boldsymbol{\nu}
+\end{array}\right]\\
+\dot{\boldsymbol{x}}(t) & = & \boldsymbol{\Phi}(t)\boldsymbol{\theta}
+\end{array}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+Parameter Estimation
+\end_layout
+
+\begin_layout Standard
+For a given 
+\begin_inset Formula $q$
+\end_inset
+
+ and each 
+\begin_inset Formula $t=0,1,2,\ldots,T$
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Itemize
+data available - for 
+\begin_inset Formula $t=0,1,2,\ldots,T$
+\end_inset
+
+ we have 
+\begin_inset Formula $I(t),R(t),D(t)$
+\end_inset
+
+.
+ 
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $S(t)=qP-I(t)-R(t)-D(t)$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+Pick the basis functions 
+\series bold
+
+\begin_inset Formula $b_{i},g_{i},m_{i}$
+\end_inset
+
+ 
+\series default
+and the number of the basis functions used 
+\begin_inset Formula $n_{1},n_{2},n_{3}$
+\end_inset
+
+ in approximating 
+\begin_inset Formula $\beta(t),\gamma(t)$
+\end_inset
+
+ and 
+\begin_inset Formula $\nu(t)$
+\end_inset
+
+ respectively
+\end_layout
+
+\begin_layout Itemize
+compute 
+\begin_inset Formula $\Delta\boldsymbol{x}\left(t\right)$
+\end_inset
+
+ and 
+\begin_inset Formula $\boldsymbol{\Phi}\left(t;q\right)$
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Standard
+For each 
+\begin_inset Formula $t>0$
+\end_inset
+
+, and a forgetting factor 
+\begin_inset Formula $w\in\left(0,1\right]$
+\end_inset
+
+ (used 
+\begin_inset Formula $w=0.9$
+\end_inset
+
+ and 
+\begin_inset Formula $w=0.7$
+\end_inset
+
+)
+\end_layout
+
+\begin_layout Itemize
+build 
+\begin_inset Formula 
+\begin{equation}
+\boldsymbol{y}=\left[\begin{array}{c}
+\sqrt{w^{T-1}}\Delta\boldsymbol{x}\left(1\right)\\
+\sqrt{w^{T-2}}\Delta\boldsymbol{x}\left(2\right)\\
+\vdots\\
+\sqrt{w^{T-t}}\Delta\boldsymbol{x}\left(t\right)\\
+\vdots\\
+\Delta\boldsymbol{x}\left(T\right)
+\end{array}\right]\label{eq:yyy}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+build
+\begin_inset Formula 
+\[
+A=\left[\begin{array}{c}
+\sqrt{w^{T-1}}\boldsymbol{\Phi}\left(1;q\right)\\
+\sqrt{w^{T-2}}\boldsymbol{\Phi}\left(2;q\right)\\
+\vdots\\
+\sqrt{w^{T-t}}\boldsymbol{\Phi}\left(t;q\right)\\
+\vdots\\
+\boldsymbol{\Phi}\left(T;q\right)
+\end{array}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+minimize the cost function
+\begin_inset Formula 
+\begin{equation}
+\min_{\theta}f\left(q,\boldsymbol{\theta}\right)=\min_{\theta}\frac{1}{T}\left\Vert \boldsymbol{y}-A\boldsymbol{\theta}\right\Vert _{2}^{2}+\lambda\left\Vert \theta\right\Vert _{1}\label{eq:parameterEstimationSIRD-1}
+\end{equation}
+
+\end_inset
+
+with 
+\begin_inset Formula $\lambda=10$
+\end_inset
+
+.
+ 
+\end_layout
+
+\begin_layout Standard
+Note that 
+\begin_inset Formula 
+\[
+\frac{1}{T}\left\Vert \boldsymbol{y}-A\boldsymbol{\theta}\right\Vert _{2}=\frac{1}{T}\sum_{t=1}^{T}w^{T-t}\left\Vert \Delta\boldsymbol{x}\left(t\right)-\Phi\left(t;q\right)\boldsymbol{\theta}\right\Vert _{2}^{2}
+\]
+
+\end_inset
+
+ captures how much each measurement 
+\begin_inset Formula $\Delta\boldsymbol{x}\left(t\right)$
+\end_inset
+
+ differs from the prediction 
+\begin_inset Formula $\Phi\left(t;q\right)\boldsymbol{\theta}$
+\end_inset
+
+(if we were to use the parameters 
+\begin_inset Formula $\boldsymbol{\theta}$
+\end_inset
+
+) by having the most recent measurements worth more; 
+\begin_inset Formula $\lambda\left\Vert \theta\right\Vert _{1}$
+\end_inset
+
+ is a regularitation term on the parameters.
+ 
+\end_layout
+
+\begin_layout Standard
+Equation 
+\begin_inset CommandInset ref
+LatexCommand eqref
+reference "eq:parameterEstimationSIRD-1"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ can be solved in python using
+\end_layout
+
+\begin_layout Standard
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+from sklearn import linear_model
+\end_layout
+
+\begin_layout Plain Layout
+
+clf = linear_model.Lasso(alpha=lambda/2, fit_intercept=false, positive=true)
+\end_layout
+
+\begin_layout Plain Layout
+
+clf.fit(A, y)
+\end_layout
+
+\begin_layout Plain Layout
+
+print(clf.coef_)
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Feedback Model
+\end_layout
+
+\begin_layout Standard
+Assume 
+\begin_inset Formula $\beta$
+\end_inset
+
+ is a function of the number of infections and deaths
+\begin_inset Formula 
+\begin{equation}
+\beta=\frac{\beta_{0}}{1+\left(\beta_{1}\Delta I+\beta_{2}\Delta D\right)^{\beta_{3}}}\label{eq:beta_feedback}
+\end{equation}
+
+\end_inset
+
+where 
+\begin_inset Formula $\beta_{0},\beta_{1},\beta_{2},\beta_{3}\geq0$
+\end_inset
+
+.
+ Non-convex problem.
+ Sove using some for of gradient descent.
+ To make things easier on the optimization, can fix 
+\begin_inset Formula $\beta_{3}=1$
+\end_inset
+
+ or 
+\begin_inset Formula $\beta_{3}=2$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Subsection
+
+\series bold
+\size large
+Modelling Without a Parameter
+\end_layout
+
+\begin_layout Standard
+Predicting without available recovered data negatively affects the predicition
+ but not as much as expected.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename C:/Users/Jesse/Documents/GitHub/COVID-Tracking-Biola-Summer/Figures/Arizona No Recovery Impact.png
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename C:/Users/Jesse/Documents/GitHub/COVID-Tracking-Biola-Summer/Figures/Arizona Approximated Recovery.png
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\end_layout
+
+\end_body
+\end_document
