@@ -834,7 +834,47 @@ where
 .
 \end_layout
 
+\begin_layout Subsection
+
+\series bold
+\size large
+Modelling Without a Parameter
+\end_layout
+
 \begin_layout Standard
+Predicting without available recovered data negatively affects the predicition
+ but not as much as expected.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename C:/Users/Jesse/Documents/GitHub/COVID-Tracking-Biola-Summer/Figures/Arizona No Recovery Impact.png
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+
 
 \end_layout
 
