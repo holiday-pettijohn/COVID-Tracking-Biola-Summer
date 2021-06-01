@@ -29,7 +29,7 @@ def loadData(filename):
 
 #--------------------------------------------------------------------------------------------------------
 
-def calculateAverageParams(infected, recovered, dead, pop, q, graph=True):
+def calculateAverageParams(infected, recovered, dead, pop, q, graph=True, graphVals=[True,True,True,True]):
     #since S+I+R+D always equals the same constant S(t) can now be determined
     suscept = q*pop - infected - recovered - dead
     
@@ -46,10 +46,14 @@ def calculateAverageParams(infected, recovered, dead, pop, q, graph=True):
     if(graph):
         #plot rates over time
         fig, ax = plt.subplots(figsize=(18,8))
-        ax.plot(suscept, color='blue', label='suscpetible') #graphing susceptible makes the scaling to hard to visualize
-        ax.plot(infected, color='orange', label='infected')
-        ax.plot(recovered, color='green', label='recovered')
-        ax.plot(dead, color='black', label='dead')
+        if(graphVals[0]):
+            ax.plot(suscept, color='blue', label='suscpetible') #graphing susceptible makes the scaling to hard to visualize
+        if(graphVals[1]):
+            ax.plot(infected, color='orange', label='infected')
+        if(graphVals[2]):
+            ax.plot(recovered, color='green', label='recovered')
+        if(graphVals[3]):    
+            ax.plot(dead, color='black', label='dead')
 
         fig2, ax2 = plt.subplots(3, 1, figsize=(18,8))
         ax2[0].plot(transRate, color='orange', label='Transmission Rate')
@@ -191,11 +195,11 @@ def getQ(infect, recov, dead, pop, resol=150, qMin = -1, qMax = 1, w=.9, lamda=1
             A[4*t+2] = sirdMatrix[4*t+2] * np.sqrt(w**(T - t))
             A[4*t+3] = sirdMatrix[4*t+3] * np.sqrt(w**(T - t))
         #solve for y and A
-        #model = linear_model.Lasso(alpha=lamda, fit_intercept=False, positive=True)
-        #model.fit(A,y)
-        #paramList[i] = model.coef_
+        model = linear_model.Lasso(alpha=lamda, fit_intercept=False, positive=True)
+        model.fit(A,y)
+        paramList[i] = model.coef_
         
-        paramList[i] = np.linalg.lstsq(A, y, rcond=None)[0].flatten()
+        #paramList[i] = np.linalg.lstsq(A, y, rcond=None)[0].flatten()
 
         #lossList[i] = (1.0/T) * np.linalg.norm((A @ paramList[i]) - y.transpose(), ord=2)**2  + lamda*np.linalg.norm(paramList[i], ord=1)
         lossList[i] = (1.0/T) * np.linalg.norm((A @ paramList[i]) - y.transpose(), ord=2)**2
@@ -240,11 +244,11 @@ def getQBasis(infect, recov, dead, pop, resol=150, qMin = -1, qMax = 1, w=.9, la
             A[4*t+2] = basisFlat[4*t+2] * np.sqrt(w**(T - t))
             A[4*t+3] = basisFlat[4*t+3] * np.sqrt(w**(T - t))
         #solve for y and A using linear regression
-        #model = linear_model.Lasso(alpha=lamda, fit_intercept=False, positive=True)
-        #model.fit(A,y)
-        #paramList[i] = model.coef_
+        model = linear_model.Lasso(alpha=lamda, fit_intercept=False, positive=True)
+        model.fit(A,y)
+        paramList[i] = model.coef_
         
-        paramList[i] = np.linalg.lstsq(A, y, rcond=None)[0].flatten()
+        #paramList[i] = np.linalg.lstsq(A, y, rcond=None)[0].flatten()
 
         #lossList[i] = (1.0/T) * np.linalg.norm((A @ paramList[i]) - y.transpose(), ord=2)**2  + lamda*np.linalg.norm(paramList[i], ord=1)
         lossList[i] = (1.0/T) * np.linalg.norm((A @ paramList[i]) - y.transpose(), ord=2)**2
@@ -334,38 +338,48 @@ def calculateFuture(infect, recov, dead, pop, daysToPredict, params=None, q=None
 
 
 #predict future days that are not known
-def predictFuture(infect, recov, dead, pop, daysToPredict, param=None, qVal=None):
+def predictFuture(infect, recov, dead, pop, daysToPredict, param=None, qVal=None, graphVals=[True,True,True,True]):
     pS, pI, pR, pD, q, params = calculateFuture(infect, recov, dead, pop, daysToPredict, params=param, q=qVal)
     
     suscept = q*pop - infect - recov - dead
     
     #plot actual and predicted values
     fig, ax = plt.subplots(figsize=(18,8))
-    ax.plot(suscept, color='blue', label='suscpetible')
-    ax.plot(infect, color='orange', label='infected')
-    ax.plot(recov, color='green', label='recovered')
-    ax.plot(dead, color='black', label='dead')
-    ax.plot(pS, color='blue', label='suscpetible', linestyle='dashed')
-    ax.plot(pI, color='orange', label='infected', linestyle='dashed')
-    ax.plot(pR, color='green', label='recovered', linestyle='dashed')
-    ax.plot(pD, color='black', label='dead', linestyle='dashed')
+    if(graphVals[0]):
+        ax.plot(suscept, color='blue', label='suscpetible')
+        ax.plot(pS, color='blue', label='suscpetible', linestyle='dashed')
+    if(graphVals[1]):
+        ax.plot(infect, color='orange', label='infected')
+        ax.plot(pI, color='orange', label='infected', linestyle='dashed')
+    if(graphVals[2]):
+        ax.plot(recov, color='green', label='recovered')
+        ax.plot(pR, color='green', label='recovered', linestyle='dashed')
+    if(graphVals[3]):
+        ax.plot(dead, color='black', label='dead')
+        ax.plot(pD, color='black', label='dead', linestyle='dashed')
+
     
 #predict days that are known for testing purposes, predicts the end portion of the given data
-def predictMatch(infect, recov, dead, pop, daysToPredict, param=None, qVal=None):
+def predictMatch(infect, recov, dead, pop, daysToPredict, param=None, qVal=None, graphVals=[True,True,True,True]):
     pS, pI, pR, pD, q, params = calculateFuture(infect[0:-daysToPredict], recov[0:-daysToPredict], dead[0:-daysToPredict], pop, daysToPredict, params=param, q=qVal)
     
     suscept = q*pop - infect - recov - dead
     
     #plot actual and predicted values
     fig, ax = plt.subplots(figsize=(18,8))
-    ax.plot(suscept, color='blue', label='suscpetible')
-    ax.plot(infect, color='orange', label='infected')
-    ax.plot(recov, color='green', label='recovered')
-    ax.plot(dead, color='black', label='dead')
-    ax.plot(pS, color='blue', label='suscpetible', linestyle='dashed')
-    ax.plot(pI, color='orange', label='infected', linestyle='dashed')
-    ax.plot(pR, color='green', label='recovered', linestyle='dashed')
-    ax.plot(pD, color='black', label='dead', linestyle='dashed')
+    if(graphVals[0]):
+        ax.plot(suscept, color='blue', label='suscpetible')
+        ax.plot(pS, color='blue', label='suscpetible', linestyle='dashed')
+    if(graphVals[1]):
+        ax.plot(infect, color='orange', label='infected')
+        ax.plot(pI, color='orange', label='infected', linestyle='dashed')
+    if(graphVals[2]):
+        ax.plot(recov, color='green', label='recovered')
+        ax.plot(pR, color='green', label='recovered', linestyle='dashed')
+    if(graphVals[3]):
+        ax.plot(dead, color='black', label='dead')
+        ax.plot(pD, color='black', label='dead', linestyle='dashed')
+
 
 
 def calculateFutureBasisSmooth(infect, recov, dead, pop, daysToPredict, q=None):
@@ -533,7 +547,7 @@ def calculateFutureBasis(infect, recov, dead, pop, daysToPredict, q=None):
     return susceptPredict, infectPredict, recovPredict, deadPredict, q
 
 #predict future days that are not known
-def predictFutureBasis(infect, tests, recov, dead, pop, daysToPredict, qVal=None, smooth=False):
+def predictFutureBasis(infect, tests, recov, dead, pop, daysToPredict, qVal=None, smooth=False, graphVals=[True,True,True,True]):
     if(smooth):
         pS, pI, pR, pD, q = calculateFutureBasisSmooth(infect, recov, dead, pop, daysToPredict, q=qVal)
     else:
@@ -542,17 +556,22 @@ def predictFutureBasis(infect, tests, recov, dead, pop, daysToPredict, qVal=None
 
     #plot actual and predicted values
     fig, ax = plt.subplots(figsize=(18,8))
-    ax.plot(suscept, color='blue', label='suscpetible')
-    ax.plot(infect, color='orange', label='infected')
-    ax.plot(recov, color='green', label='recovered')
-    ax.plot(dead, color='black', label='dead')
-    ax.plot(pS, color='blue', label='suscpetible', linestyle='dashed')
-    ax.plot(pI, color='orange', label='infected', linestyle='dashed')
-    ax.plot(pR, color='green', label='recovered', linestyle='dashed')
-    ax.plot(pD, color='black', label='dead', linestyle='dashed')
+    if(graphVals[0]):
+        ax.plot(suscept, color='blue', label='suscpetible')
+        ax.plot(pS, color='blue', label='suscpetible', linestyle='dashed')
+    if(graphVals[1]):
+        ax.plot(infect, color='orange', label='infected')
+        ax.plot(pI, color='orange', label='infected', linestyle='dashed')
+    if(graphVals[2]):
+        ax.plot(recov, color='green', label='recovered')
+        ax.plot(pR, color='green', label='recovered', linestyle='dashed')
+    if(graphVals[3]):
+        ax.plot(dead, color='black', label='dead')
+        ax.plot(pD, color='black', label='dead', linestyle='dashed')
+
 
 #predict days that are known for testing purposes, predicts the end portion of the given data
-def predictMatchBasis(infect, recov, dead, pop, daysToPredict, param=None, qVal=None, smooth=False):
+def predictMatchBasis(infect, recov, dead, pop, daysToPredict, param=None, qVal=None, smooth=False, graphVals=[True,True,True,True]):
 
     if(smooth):
         pS, pI, pR, pD, q = calculateFutureBasisSmooth(infect[0:-daysToPredict], recov[0:-daysToPredict], dead[0:-daysToPredict], pop, daysToPredict, q=qVal)
@@ -563,12 +582,16 @@ def predictMatchBasis(infect, recov, dead, pop, daysToPredict, param=None, qVal=
 
     #plot actual and predicted values
     fig, ax = plt.subplots(figsize=(18,8))
-    ax.plot(suscept, color='blue', label='suscpetible')
-    ax.plot(infect, color='orange', label='infected')
-    ax.plot(recov, color='green', label='recovered')
-    ax.plot(dead, color='black', label='dead')
-    ax.plot(pS, color='blue', label='suscpetible', linestyle='dashed')
-    ax.plot(pI, color='orange', label='infected', linestyle='dashed')
-    ax.plot(pR, color='green', label='recovered', linestyle='dashed')
-    ax.plot(pD, color='black', label='dead', linestyle='dashed')
+    if(graphVals[0]):
+        ax.plot(suscept, color='blue', label='suscpetible')
+        ax.plot(pS, color='blue', label='suscpetible', linestyle='dashed')
+    if(graphVals[1]):
+        ax.plot(infect, color='orange', label='infected')
+        ax.plot(pI, color='orange', label='infected', linestyle='dashed')
+    if(graphVals[2]):
+        ax.plot(recov, color='green', label='recovered')
+        ax.plot(pR, color='green', label='recovered', linestyle='dashed')
+    if(graphVals[3]):
+        ax.plot(dead, color='black', label='dead')
+        ax.plot(pD, color='black', label='dead', linestyle='dashed')
 
