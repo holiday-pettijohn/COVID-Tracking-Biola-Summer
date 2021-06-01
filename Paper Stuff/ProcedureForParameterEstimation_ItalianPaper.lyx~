@@ -149,14 +149,35 @@ Time
 \dot{S} & = & -\beta\frac{SI}{S+I}\\
 \dot{I} & = & \beta\frac{SI}{S+I}-\gamma I-\nu I\\
 \dot{R} & = & \gamma I\\
-\dot{D} & = & \nu I\\
-qP & = & S+I+R+D
+\dot{D} & = & \nu I
 \end{array}\label{eq:SIRDode}
 \end{equation}
 
 \end_inset
 
-The ODE part we can rewrite as 
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{multline*}
+\text{}\\
+0\leq\omega\leq1\\
+\alpha\geq1\\
+S=\omega Pop-I-R-D\\
+S=\alpha\bar{S}\\
+I=\alpha\bar{I}\\
+R=\alpha\bar{R}\\
+D=\alpha\bar{D}\\
+\alpha\bar{S}=\omega Pop-\alpha\bar{I}+\alpha\bar{R}+\alpha\bar{D}\\
+\bar{S}=\frac{\omega}{\alpha}Pop-\bar{I}+\bar{R}+\bar{D}\\
+q=\frac{\omega}{\alpha}\\
+\bar{S}=qPop-\bar{I}+\bar{R}+\bar{D}\\
+\end{multline*}
+
+\end_inset
+
+ The ordinary differential equations part we can rewrite.
 \begin_inset Formula 
 \[
 \begin{array}{rcl}
@@ -179,7 +200,24 @@ The ODE part we can rewrite as
 
 \end_inset
 
+It should be clear that the matrix can be solved using actual (
+\begin_inset Formula $S,I,R,D$
+\end_inset
 
+) or reported (
+\begin_inset Formula $\bar{S},\bar{I},\bar{R},\bar{D}$
+\end_inset
+
+) numbers.
+ For the remainder of this paper 
+\begin_inset Formula $S,I,R,D$
+\end_inset
+
+ will be used as a proxy for 
+\begin_inset Formula $\bar{S},\bar{I},\bar{R},\bar{D}$
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Standard
@@ -233,7 +271,7 @@ noprefix "false"
 
 \begin_layout Standard
 subject to 
-\begin_inset Formula $qP=S+I+R+D$
+\begin_inset Formula $qPop=S+I+R+D$
 \end_inset
 
 .
@@ -249,6 +287,9 @@ Time
 \end_inset
 
  is a discrete variable (i.e., 1,2,3,4...).
+\begin_inset Formula $f$
+\end_inset
+
  The difference version of 
 \begin_inset CommandInset ref
 LatexCommand eqref
@@ -287,11 +328,98 @@ where
 \begin_inset Formula $\boldsymbol{\omega}$
 \end_inset
 
- are different from the parameters of the continuos model.
+ are different from the parameters of the continuous model.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Formula 
+\[
+\begin{array}{rcl}
+\left[\begin{array}{c}
+S(t+1)-S(t)\\
+I(t+1)-I(t)\\
+R(t+1)-R(t)\\
+D(t+1)-D(t)
+\end{array}\right] & = & \left[\begin{array}{ccc}
+-\frac{S(t)I(t)}{S(t)+I(t)} & 0 & 0\\
+\frac{S(t)I(t)}{S(t)+I(t)} & -I(t) & -I(t)\\
+0 & I(t) & 0\\
+0 & 0 & I(t)
+\end{array}\right]\left[\begin{array}{c}
+\beta\\
+\gamma\\
+\nu
+\end{array}\right]\end{array}
+\]
+
+\end_inset
+
+If 
+\begin_inset Formula $\beta$
+\end_inset
+
+, 
+\begin_inset Formula $\gamma$
+\end_inset
+
+, and 
+\begin_inset Formula $\nu$
+\end_inset
+
+ are functions of time instead of constants, the discrete time model can
+ be written as
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Formula 
+\[
+\begin{array}{rcl}
+\left[\begin{array}{c}
+S(t+1)-S(t)\\
+I(t+1)-I(t)\\
+R(t+1)-R(t)\\
+D(t+1)-D(t)
+\end{array}\right] & = & \left[\begin{array}{ccc}
+-\frac{S(t)I(t)}{S(t)+I(t)} & 0 & 0\\
+\frac{S(t)I(t)}{S(t)+I(t)} & -I(t) & -I(t)\\
+0 & I(t) & 0\\
+0 & 0 & I(t)
+\end{array}\right]\left[\begin{array}{c}
+\beta(t)\\
+\gamma(t)\\
+\nu(t)
+\end{array}\right]\end{array}
+\]
+
+\end_inset
+
+Then for each 
+\begin_inset Formula $t$
+\end_inset
+
+, 
+\begin_inset Formula $\beta(t)$
+\end_inset
+
+, 
+\begin_inset Formula $\gamma(t)$
+\end_inset
+
+, and 
+\begin_inset Formula $\nu(t)$
+\end_inset
+
+ can be solved by the Moore-Penrose pseudoinverse 
+\begin_inset Formula $\theta(t)=\Phi^{\dagger}(t;q)\Delta\boldsymbol{x}\left(t\right)$
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Subsection
-Parameter Estimation of the Discrete Time Model
+Parameter Estimation of the Discrete Time Model using Basis Functions
 \end_layout
 
 \begin_layout Standard
@@ -518,8 +646,7 @@ B(t) & = & \left[b_{1}(t),\ldots,b_{n_{1}}(t)\right]\\
 G(t) & = & \left[g_{1}(t),\ldots,g_{n_{2}}(t)\right]\\
 \boldsymbol{\gamma} & = & \left[\gamma_{1},\ldots,\gamma_{n_{2}}\right]\\
 M(t) & = & \left[m_{1}(t),\ldots,m_{n_{3}}(t)\right]\\
-\boldsymbol{\nu} & = & \left[\nu_{1},\ldots,\nu_{n_{1}}\right]\\
-F(t) & = & \frac{S(t)I(t)}{S(t)+I(t)}
+\boldsymbol{\nu} & = & \left[\nu_{1},\ldots,\nu_{n_{1}}\right]
 \end{array}
 \]
 
@@ -545,8 +672,8 @@ noprefix "false"
 \dot{R}\\
 \dot{D}
 \end{array}\right] & = & \left[\begin{array}{ccccccccc}
--b_{1}F & \cdots & -b_{n_{1}}F & 0 & \cdots & 0 & 0 & \cdots & 0\\
-b_{1}F & \cdots & b_{n_{1}}F & -g_{1}I & \cdots & -g_{n_{2}}I & -m_{1}I & \cdots & -m_{n_{2}}I\\
+-b_{1}\frac{SI}{S+I} & \cdots & -b_{n_{1}}\frac{SI}{S+I} & 0 & \cdots & 0 & 0 & \cdots & 0\\
+b_{1}\frac{SI}{S+I} & \cdots & b_{n_{1}}\frac{SI}{S+I} & -g_{1}I & \cdots & -g_{n_{2}}I & -m_{1}I & \cdots & -m_{n_{2}}I\\
 0 & \cdots & 0 & g_{1}I & \cdots & g_{n_{2}}I & 0 & \cdots & 0\\
 0 & \cdots & 0 & 0 & \cdots & 0 & m_{1}I & \cdots & m_{n_{2}}I
 \end{array}\right]\left[\begin{array}{c}
@@ -561,8 +688,8 @@ b_{1}F & \cdots & b_{n_{1}}F & -g_{1}I & \cdots & -g_{n_{2}}I & -m_{1}I & \cdots
 \nu_{n_{3}}
 \end{array}\right]\\
  & = & \left[\begin{array}{ccc}
--BF & \boldsymbol{0} & \boldsymbol{0}\\
-BF & -GI & -MI\\
+-B\frac{SI}{S+I} & \boldsymbol{0} & \boldsymbol{0}\\
+B\frac{SI}{S+I} & -GI & -MI\\
 \boldsymbol{0} & GI & 0\\
 \boldsymbol{0} & \boldsymbol{0} & MI
 \end{array}\right]\left[\begin{array}{c}
@@ -800,107 +927,118 @@ print(clf.coef_)
 \end_layout
 
 \begin_layout Subsection
-Feedback Model
+Model with Time Varying Parameters
 \end_layout
 
 \begin_layout Standard
-Assume 
-\begin_inset Formula $\beta$
+Using basis functions 
+\begin_inset Formula $\beta(t)$
 \end_inset
 
- is a function of the number of infections and deaths
+, 
+\begin_inset Formula $\gamma(t)$
+\end_inset
+
+, and 
+\begin_inset Formula $\nu(t)$
+\end_inset
+
+ should be determined as well as 
+\begin_inset Formula $\Phi(t;q)$
+\end_inset
+
+, 
+\begin_inset Formula $I$
+\end_inset
+
+, 
+\begin_inset Formula $R$
+\end_inset
+
+, and 
+\begin_inset Formula $D$
+\end_inset
+
+ known from the reported data, and 
+\begin_inset Formula $S$
+\end_inset
+
+ determined from the chosen value of 
+\begin_inset Formula $q$
+\end_inset
+
+.
+ Then future values can be approximated
+\end_layout
+
+\begin_layout Standard
 \begin_inset Formula 
-\begin{equation}
-\beta=\frac{\beta_{0}}{1+\left(\beta_{1}\Delta I+\beta_{2}\Delta D\right)^{\beta_{3}}}\label{eq:beta_feedback}
-\end{equation}
+\begin{multline*}
+\\
+0\leq t\leq T_{p}\\
+0\leq T\leq T_{p}\\
+\\
+\text{Then for all }t\text{ in range }T+1,T+2,\ldots,T_{p}\\
+\boldsymbol{x}\left(t+1\right)=\Delta\boldsymbol{x}\left(t\right)+\boldsymbol{x}(t)\\
+\boldsymbol{x}\left(t+1\right)=\Phi(q;t)\theta(T)+\boldsymbol{x}(t)\\
+\end{multline*}
 
 \end_inset
 
-where 
-\begin_inset Formula $\beta_{0},\beta_{1},\beta_{2},\beta_{3}\geq0$
+To normalize the prediction a similar method can be used.
+ 
+\family roman
+\series medium
+\shape up
+\size normal
+\emph off
+\bar no
+\strikeout off
+\xout off
+\uuline off
+\uwave off
+\noun off
+\color none
+Let 
+\begin_inset Formula $p(t,t_{0})$
+\end_inset
+
+ be the predicted model state at time 
+\begin_inset Formula $t$
+\end_inset
+
+ using parameters from time 
+\begin_inset Formula $t_{0}$
 \end_inset
 
 .
- Non-convex problem.
- Sove using some for of gradient descent.
- To make things easier on the optimization, can fix 
-\begin_inset Formula $\beta_{3}=1$
-\end_inset
-
- or 
-\begin_inset Formula $\beta_{3}=2$
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Subsection
-
-\series bold
-\size large
-Modelling Without a Parameter
+ 
 \end_layout
 
 \begin_layout Standard
-Predicting without available recovered data negatively affects the predicition
- but not as much as expected.
+\begin_inset Formula 
+\begin{multline*}
+\\
+p(t,t_{0})=\Phi(q;t-1)\theta(t_{0})+\boldsymbol{x}(t-1)\\
+\\
+\text{For all }t\text{ in range }T+1,T+2,\ldots,T_{p}\\
+\boldsymbol{x}\left(t\right)=\frac{1}{2^{T}}p(t,0)+\sum_{\tau=1}^{T}\frac{p(t,\tau)}{2^{T-\tau+1}}\\
+\end{multline*}
+
+\end_inset
+
+In practice this can be solved by
 \end_layout
 
 \begin_layout Standard
-\begin_inset Float figure
-wide false
-sideways false
-status open
-
-\begin_layout Plain Layout
-\begin_inset Caption Standard
-
-\begin_layout Plain Layout
-\begin_inset Graphics
-	filename C:/Users/Jesse/Documents/GitHub/COVID-Tracking-Biola-Summer/Figures/Arizona No Recovery Impact.png
-
-\end_inset
-
-
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Float figure
-wide false
-sideways false
-status open
-
-\begin_layout Plain Layout
-
-\end_layout
-
-\begin_layout Plain Layout
-\begin_inset Caption Standard
-
-\begin_layout Plain Layout
-\begin_inset Graphics
-	filename C:/Users/Jesse/Documents/GitHub/COVID-Tracking-Biola-Summer/Figures/Arizona Approximated Recovery.png
-	scale 80
-
-\end_inset
-
-
-\end_layout
-
-\end_inset
-
-
-\end_layout
+\begin_inset Formula 
+\begin{multline*}
+\\
+\text{For all }t\text{ in range }T+1,T+2,\ldots,T_{p}\\
+x(t)=p(t,0)\\
+\text{For all }\tau\text{ in range }1,2,3,\ldots,T\\
+x(t)\leftarrow\frac{1}{2}x(t)+\frac{1}{2}p(t,\tau)\\
+\end{multline*}
 
 \end_inset
 
