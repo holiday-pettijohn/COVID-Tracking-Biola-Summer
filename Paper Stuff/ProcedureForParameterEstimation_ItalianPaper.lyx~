@@ -1022,7 +1022,7 @@ Let
 p(t,t_{0})=\Phi(q;t-1)\theta(t_{0})+\boldsymbol{x}(t-1)\\
 \\
 \text{For all }t\text{ in range }T+1,T+2,\ldots,T_{p}\\
-\boldsymbol{x}\left(t+1\right)=\frac{1}{2^{T}}p(t,0)+\sum_{\tau=1}^{T}\frac{p(t,\tau)}{2^{T-\tau+1}}\\
+\boldsymbol{x}\left(t\right)=\frac{1}{2^{T}}p(t,0)+\sum_{\tau=1}^{T}\frac{p(t,\tau)}{2^{T-\tau+1}}\\
 \end{multline*}
 
 \end_inset
