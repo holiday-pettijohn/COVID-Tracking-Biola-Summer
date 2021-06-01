@@ -42,16 +42,18 @@ def calculateAverageParams(infected, recovered, dead, pop, q, graph=True):
     if(graph):
         #plot rates over time
         fig, ax = plt.subplots(figsize=(18,8))
-        ax.plot(suscept, color='blue', label='suscpetible') #graphing susceptible makes the scaling to hard to visualize
-        ax.plot(infected, color='orange', label='infected')
+	ax.plot(suscept, color='blue', label='suscpetible') #graphing susceptible makes the scaling to hard to visualize
+	ax.plot(infected, color='orange', label='infected')
         ax.plot(recovered, color='green', label='recovered')
         ax.plot(dead, color='black', label='dead')
 
         fig2, ax2 = plt.subplots(3, 1, figsize=(18,8))
         ax2[0].plot(transRate, color='orange', label='Transmission Rate')
+        ax2[0].axis([0,300,0,1])
         ax2[1].plot(recovRate, color='green', label='Recovery Rate')
+        ax2[1].axis([0,300,0,1])
         ax2[2].plot(deathRate, color='black', label='Death Rate')
-    
+        ax2[2].axis([0,300,0,1])
     return paramMatrix
 
 def getSIRDMatrices(suscept, infect, recov, dead):
@@ -280,8 +282,11 @@ def getBasisFunc(suscept, infect, recov, dead, graph=True):
     if(graph):
         fig2, ax2 = plt.subplots(3, 1, figsize=(18,8))
         ax2[0].plot(trans, color='orange', label='Transmission Rate')
+        ax2[0].axis([0,300,0,1])
         ax2[1].plot(recov, color='green', label='Recovery Rate')
+        ax2[1].axis([0,300,0,1])
         ax2[2].plot(death, color='black', label='Death Rate')
+        ax2[2].axis([0,300,0,1])
     return basisFlat, dtFlat, B, G, M, params
 
 def getQBasis(infect, recov, dead, pop, resol=150, qMin = -1, qMax = 1, w=.9, lamda=10, graph=True):
