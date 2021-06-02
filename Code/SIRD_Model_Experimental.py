@@ -82,37 +82,29 @@ def LPol(X, p=None):
         Z[:,i+1]=eval_legendre(i+1, X)
     return Z
 
-def getBasisFunc(suscept, infect, recov, dead, graph=True):
+def getBasisFunc(suscept, infect, recov, dead, polyN=3, graph=True):
     dt, A = getSIRDMatrices(suscept, infect, recov, dead)
-   
-    #see paper for B,G,M basis functions, ones since b_0, g_0, m_0 = 1
-    B = np.ones((len(A), 21))
-    G = np.ones((len(A), 3))
-    M = np.ones((len(A), 21))
-
-    polyN = 3 #degree of legendre
     
+    B = np.ones((len(A), polyN + 1))
+    G = np.ones((len(A), polyN + 1))
+    M = np.ones((len(A), polyN + 1))
+    lenB = polyN + 1
+    lenG = polyN + 1
+    lenM = polyN + 1
+
     for t in range(len(A)):
-        #B[:] = ~[1, e^(-t/10), e^(-t/11.05), ... e^(-t/30)]
-        #M[:] = ~[1, e^(-t/10), e^(-t/11.05), ... e^(-t/30)]
-        
-        for i in range(1,21):
-            B[t,i] = np.exp( -t / (1.05265*i+8.94735))
-            M[t,i] = np.exp( -t / (1.05265*i+8.94735))
-
-        #G[:] = [1, t, t^2]
-        G[t,1] = t
-        G[t,2] = t**2
-
-
+        B[t] = LPol([t], p=polyN)
+        G[t] = LPol([t], p=polyN)
+        M[t] = LPol([t], p=polyN)
+   
     basisA = np.zeros((len(A), 4,3 * (polyN + 1))) #setup new matrix, still has first dimension be time
 
     #fill basis matrix
     for t in range(len(A)):
-
-        basisA[t,:,0:polyN + 1] = LPol(A[t,:,0], p = polyN)
-        basisA[t,:,polyN + 1:polyN+polyN + 2] = LPol(A[t,:,1], p = polyN)
-        basisA[t,:,polyN+2 +polyN:] = LPol(A[t,:,2], p = polyN)
+        for row in range(4):
+            basisA[t,row,0:lenB] = A[t,row,0] * B[t]
+            basisA[t,row,lenB:lenB+lenG] = A[t,row,1] * G[t]
+            basisA[t,row,lenB+lenG:] = A[t,row,2] * M[t]
     
     #flatten out matrix, remove time dimension and just make tall matrix
     basisFlat = np.zeros((len(A)*4, 3 * (polyN+1)))
@@ -129,21 +121,21 @@ def getBasisFunc(suscept, infect, recov, dead, graph=True):
         basisFlat[t*4 + 3] = basisA[t, 3]
 
     params = np.linalg.lstsq(basisFlat, dtFlat, rcond=None)[0].flatten()
+    #print(params)
+    
     transP = params[0:polyN+1]
     recovP = params[polyN+1:polyN+polyN+2]
     deathP = params[polyN+polyN+2:]
 
-    t1=np.linspace(0,len(dt))
-    #trans=eval_legendre(,t1)
-    
-    trans = B @ transP 
-    recov = LPol(recovP, p = polyN)
-    death = LPol(deathP, p = polyN)
+    trans = B @ transP
+    recov = G @ recovP
+    death = M @ deathP
+        
     if(graph):
         fig2, ax2 = plt.subplots(3, 1, figsize=(18,8))
         ax2[0].plot(trans, color='orange', label='Transmission Rate')
-        ax2[1].plot(recovP, color='green', label='Recovery Rate')
-        ax2[2].plot(deathP, color='black', label='Death Rate')
+        ax2[1].plot(recov, color='green', label='Recovery Rate')
+        ax2[2].plot(death, color='black', label='Death Rate')
     return basisFlat, dtFlat, params
 
 #--------------------------------------------------------------------------------------------------------
