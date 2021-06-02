@@ -129,6 +129,54 @@ class CovidTrackingDatabase(object):
         self.DateRange=len(CountyD)
         self.CovidData=CountyD
 
+class CovidDatabase(object):
+    """ Stores the covid-19 data"""
+    def __init__(self):
+        self.CovidData={}
+        self.DateRange=[]
+      
+    def loadTimeSeries(self, filenameI, filenameD, startdate, enddate):
+        """ load the infections data from filenameI and death data from filenameD
+            from startdate to enddate
+        """
+        csvfile=open(filenameI, newline='')
+        rd = csv.reader(csvfile, delimiter=',')
+        data=[]
+        for lv in rd:
+            data.append(lv)
+
+        header=data[0]
+        infectionData=data[1:]
+
+        csvfiled=open(filenameD, newline='')
+        rd = csv.reader(csvfiled, delimiter=',')
+        datad=[]
+        for lv in rd:
+            datad.append(lv)
+
+        headerd=datad[0]
+        deathData=datad[1:]
+
+        startdate_index=header.index(startdate) if startdate in header else header.index("1/22/20")
+        enddate_index=header.index(enddate) if enddate in header else header.index("5/14/21")
+        startdate_indexd=headerd.index(startdate) if startdate in headerd else headerd.index("1/22/20")
+        enddate_indexd=headerd.index(enddate) if enddate in headerd else headerd.index("5/14/21")
+        
+        CountyD={}
+        N=len(infectionData);
+        for i in range(N):
+            pop1=int(deathData[i][11])
+            if (pop1>0):
+                c1=CovidTimeSeries()
+                x=infectionData[i][5]
+                c1.regionName=x
+                c1.dates=header[startdate_index:enddate_index+1]
+                c1.positive=np.array([int(a) for a  in infectionData[i][startdate_index:enddate_index+1]])
+                c1.deaths=np.array([int(a) for a  in deathData[i][startdate_indexd:enddate_indexd+1]])
+                CountyD[x]=c1
+        self.DateRange=header[startdate_index:enddate_index+1]
+        self.CovidData=CountyD
+
 def toWeekPeriod(filename,newName):
     csvfile=open(filename, newline='', encoding='UTF-8')
     rd = csv.reader(csvfile, delimiter=',')
@@ -270,17 +318,12 @@ def dateInRange(startdate, enddate, date): # See if a date is within the desired
     else:
         return False
 
-if platform.system() == "Windows":
-    pathc="..\\Data\\"
-elif platform.system() == "Linux":
-    pathc="../Data/"
-
 def writeRegionData(filename, startdate, enddate, region, fields=None):
     if fields is None:
-      fields = {"deaths": "death",
-                "infected": "positive",
-                "hospitalized": "hospitalized",
-                "recovered": "recovered"}
+        fields = {"deaths": "death",
+                  "infected": "positive",
+                  "hospitalized": "hospitalized",
+                  "recovered": "recovered"}
     database=CovidTrackingDatabase();
     database.loadTimeSeries(filename, startdate, enddate, fields)
     CountyD=database.CovidData
@@ -303,7 +346,7 @@ def writeRegionData(filename, startdate, enddate, region, fields=None):
                 wanted[N][3] = tempRecovered[N]
                 wanted[N][4] = tempDeaths[N]
 
-    filename = pathc+region+".csv"
+    filename = patho+region+".csv"
     fields = ['Dates', 'Infected','Vaccinated', 'Recovered', 'Deaths']
     # writing to csv file 
     with open(filename, 'w', newline = '') as csvfile: 
@@ -316,22 +359,66 @@ def writeRegionData(filename, startdate, enddate, region, fields=None):
         # writing the data rows 
         csvwriter.writerows(wanted)
 
-# name of file to extract data from
-filename="all-states-history.csv"
+def writeCountyData(filenamei, filenamed, startdate, enddate, county):
+    database=CovidDatabase();
+    database.loadTimeSeries(filenamei, filenamed, startdate, enddate)
+    CountyD=database.CovidData
 
-full_filename = pathc+filename
+    for key in CountyD:
+        wanted = np.zeros((np.shape(CountyD[key].dates)[0],5))
+        wanted = wanted.tolist()
+        break
+    for key in CountyD:
+        if CountyD[key].regionName == region:
+            tempDeaths = CountyD[key].deaths
+            tempInfected = CountyD[key].positive
+            tempDates = CountyD[key].dates
+            for N in range(np.shape(CountyD[key].dates)[0]):
+                wanted[N][0] = tempDates[N]
+                wanted[N][1] = tempInfected[N]
+                wanted[N][4] = tempDeaths[N]
+
+    filename = patho+region+".csv"
+    fields = ['Dates', 'Infected','Vaccinated', 'Recovered', 'Deaths']
+    # writing to csv file 
+    with open(filename, 'w', newline = '') as csvfile: 
+        # creating a csv writer object 
+        csvwriter = csv.writer(csvfile, delimiter = ',') 
+
+        # writing the fields 
+        csvwriter.writerow(fields) 
+
+        # writing the data rows 
+        csvwriter.writerows(wanted)
+        
+# system path to the input data
+pathc = "../Data/JHU Data/"
+
+# system path to the output data
+patho = "../Data/County Data/"
+
+if platform.system() == "Windows":
+    pathc.replace("/", "\\")
+
+# name of file to extract data from
+filenamei="time_series_covid19_confirmed_US.csv"
+filenamed="time_series_covid19_deaths_US.csv"
+
+full_filenamei = pathc+filenamei
+full_filenamed = pathc+filenamed
 
 # start and end date - these do not need to be in the file
-startdate="1/01/2020"
-enddate="5/27/2021"
+startdate="3/21/20"
+enddate="5/14/21"
 
 # region or state id
-region = "AZ"
+region = "Baldwin"
 
 # fields in data file
+"""
 fields = {"deaths": "death",
           "infected": "positive",
           "hospitalized": "hospitalized",
           "recovered": "recovered"}
-
-writeRegionData(full_filename, startdate, enddate, region, fields)
+"""
+writeCountyData(full_filenamei, full_filenamed, startdate, enddate, region)
