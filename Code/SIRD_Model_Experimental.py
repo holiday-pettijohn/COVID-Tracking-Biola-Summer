@@ -5,7 +5,9 @@ import numpy as np
 import csv
 import matplotlib.pyplot as plt
 import platform
+from numpy import polynomial
 from sklearn import linear_model
+from scipy.special import eval_legendre
 
 #--------------------------------------------------------------------------------------------------------
 
@@ -59,24 +61,41 @@ def calculateAverageParams(infected, recovered, dead, pop, q, graph=True, graphV
 
         fig2, ax2 = plt.subplots(3, 1, figsize=(18,8))
         ax2[0].plot(transRate, color='orange', label='Transmission Rate')
-
+       
         ax2[1].plot(recovRate, color='green', label='Recovery Rate')
-
+        
         ax2[2].plot(deathRate, color='black', label='Death Rate')
-
+      
     return paramMatrix
+
+
+def LPol(X, p=None):
+    """
+    Given the 1 dimensional input data x
+    transform that data to [1, x, x^2, ..., x^p]
+    """
+    N=np.shape(X)[0]
+    if p is None:
+        k=1
+    Z=np.ones((N, p+1))
+    for i in range(p):
+        Z[:,i+1]=eval_legendre(i+1, X)
+    return Z
 
 def getBasisFunc(suscept, infect, recov, dead, graph=True):
     dt, A = getSIRDMatrices(suscept, infect, recov, dead)
-
+   
     #see paper for B,G,M basis functions, ones since b_0, g_0, m_0 = 1
     B = np.ones((len(A), 21))
     G = np.ones((len(A), 3))
     M = np.ones((len(A), 21))
 
+    polyN = 3 #degree of legendre
+    
     for t in range(len(A)):
         #B[:] = ~[1, e^(-t/10), e^(-t/11.05), ... e^(-t/30)]
         #M[:] = ~[1, e^(-t/10), e^(-t/11.05), ... e^(-t/30)]
+        
         for i in range(1,21):
             B[t,i] = np.exp( -t / (1.05265*i+8.94735))
             M[t,i] = np.exp( -t / (1.05265*i+8.94735))
@@ -86,17 +105,17 @@ def getBasisFunc(suscept, infect, recov, dead, graph=True):
         G[t,2] = t**2
 
 
-    basisA = np.zeros((len(A), 4, 21 + 3 + 21)) #setup new matrix, still has first dimension be time
+    basisA = np.zeros((len(A), 4,3 * (polyN + 1))) #setup new matrix, still has first dimension be time
 
     #fill basis matrix
     for t in range(len(A)):
-        for row in range(4):
-            basisA[t,row,0:21] = A[t,row,0]*B[t]
-            basisA[t,row,21:21+3] = A[t,row,1]*G[t]
-            basisA[t,row,21+3:] = A[t,row,2]*M[t]
 
+        basisA[t,:,0:polyN + 1] = LPol(A[t,:,0], p = polyN)
+        basisA[t,:,polyN + 1:polyN+polyN + 2] = LPol(A[t,:,1], p = polyN)
+        basisA[t,:,polyN+2 +polyN:] = LPol(A[t,:,2], p = polyN)
+    
     #flatten out matrix, remove time dimension and just make tall matrix
-    basisFlat = np.zeros((len(A)*4, 21+3+21))
+    basisFlat = np.zeros((len(A)*4, 3 * (polyN+1)))
     dtFlat = np.zeros((len(dt)*4, 1))
     for t in range(len(dt)):
         dtFlat[t*4 + 0] = dt[t, 0]
@@ -110,19 +129,22 @@ def getBasisFunc(suscept, infect, recov, dead, graph=True):
         basisFlat[t*4 + 3] = basisA[t, 3]
 
     params = np.linalg.lstsq(basisFlat, dtFlat, rcond=None)[0].flatten()
-    transP = params[0:21]
-    recovP = params[21:21+3]
-    deathP = params[21+3:]
+    transP = params[0:polyN+1]
+    recovP = params[polyN+1:polyN+polyN+2]
+    deathP = params[polyN+polyN+2:]
 
-    trans = B @ transP
-    recov = G @ recovP
-    death = M @ deathP
+    t1=np.linspace(0,len(dt))
+    #trans=eval_legendre(,t1)
+    
+    trans = B @ transP 
+    recov = LPol(recovP, p = polyN)
+    death = LPol(deathP, p = polyN)
     if(graph):
         fig2, ax2 = plt.subplots(3, 1, figsize=(18,8))
         ax2[0].plot(trans, color='orange', label='Transmission Rate')
-        ax2[1].plot(recov, color='green', label='Recovery Rate')
-        ax2[2].plot(death, color='black', label='Death Rate')
-    return basisFlat, dtFlat, B, G, M, params
+        ax2[1].plot(recovP, color='green', label='Recovery Rate')
+        ax2[2].plot(deathP, color='black', label='Death Rate')
+    return basisFlat, dtFlat, params
 
 #--------------------------------------------------------------------------------------------------------
 
@@ -219,54 +241,6 @@ def getQ(infect, recov, dead, pop, resol=150, qMin = -1, qMax = 1, w=.9, lamda=1
 
     return qList[bestQIndex], paramList[bestQIndex]
 
-def getQBasis(infect, recov, dead, pop, resol=150, qMin = -1, qMax = 1, w=.9, lamda=10, graph=True):
-    qList = np.zeros(resol)
-    if(qMin == -1): #set if not set by the user
-        qMin = max((infect + recov + dead)/pop)
-    for i in range(resol):
-        qList[i] = qMin + (i/resol)*(qMax-qMin) #go from 0 to 1
-
-    #for each q check optimal function
-    paramList = np.zeros((resol, 21+3+21))
-    lossList = np.zeros(resol)
-    for i in range(len(qList)):
-        suscept = pop*qList[i] - infect - recov - dead
-        basisFlat, dtFlat, B, G, M, params = getBasisFunc(suscept, infect, recov, dead, graph=False)
-
-        #construct y and A, see paper for solving the lasso optimization
-        T = int(len(dtFlat)/4)
-        y = np.zeros((T*4, 1))
-        A = np.zeros((T*4, np.shape(basisFlat)[1]))
-        for t in range(T):
-            y[4*t+0] = dtFlat[4*t+0] * np.sqrt(w**(T - t))
-            y[4*t+1] = dtFlat[4*t+1] * np.sqrt(w**(T - t))
-            y[4*t+2] = dtFlat[4*t+2] * np.sqrt(w**(T - t))
-            y[4*t+3] = dtFlat[4*t+3] * np.sqrt(w**(T - t))
-
-            A[4*t+0] = basisFlat[4*t+0] * np.sqrt(w**(T - t))
-            A[4*t+1] = basisFlat[4*t+1] * np.sqrt(w**(T - t))
-            A[4*t+2] = basisFlat[4*t+2] * np.sqrt(w**(T - t))
-            A[4*t+3] = basisFlat[4*t+3] * np.sqrt(w**(T - t))
-        #solve for y and A using linear regression
-        model = linear_model.Lasso(alpha=lamda, fit_intercept=False, positive=True)
-        model.fit(A,y)
-        paramList[i] = model.coef_
-        
-        #paramList[i] = np.linalg.lstsq(A, y, rcond=None)[0].flatten()
-
-        #lossList[i] = (1.0/T) * np.linalg.norm((A @ paramList[i]) - y.transpose(), ord=2)**2  + lamda*np.linalg.norm(paramList[i], ord=1)
-        lossList[i] = (1.0/T) * np.linalg.norm((A @ paramList[i]) - y.transpose(), ord=2)**2
-        
-    bestQIndex = 0
-    for i in range(resol):
-        if(lossList[bestQIndex] > lossList[i]):
-            bestQIndex = i
-    if(graph):
-        #plot objective function with q on the x-axis
-        fig, ax = plt.subplots(figsize=(18,8))
-        ax.plot(qList, lossList, color='blue')        
-
-    return qList[bestQIndex]
 
 #--------------------------------------------------------------------------------------------------------
 
@@ -381,6 +355,57 @@ def predictMatch(infect, recov, dead, pop, daysToPredict, param=None, qVal=None,
     ax.plot(pR, color='green', label='recovered', linestyle='dashed')
     ax.plot(pD, color='black', label='dead', linestyle='dashed')
 
+def getQBasis(infect, recov, dead, pop, resol=150, qMin = -1, qMax = 1, w=.9, lamda=10, graph=True):
+    qList = np.zeros(resol)
+    if(qMin == -1): #set if not set by the user
+        qMin = max((infect + recov + dead)/pop)
+    for i in range(resol):
+        qList[i] = qMin + (i/resol)*(qMax-qMin) #go from 0 to 1
+
+    #for each q check optimal function
+    paramList = np.zeros((resol, 12))
+    lossList = np.zeros(resol)
+    for i in range(len(qList)):
+        suscept = pop*qList[i] - infect - recov - dead
+        basisFlat, dtFlat, params = getBasisFunc(suscept, infect, recov, dead, graph=False)
+
+        #construct y and A, see paper for solving the lasso optimization
+        T = int(len(dtFlat)/4)
+        y = np.zeros((T*4, 1))
+        A = np.zeros((T*4, np.shape(basisFlat)[1]))
+        for t in range(T):
+            y[4*t+0] = dtFlat[4*t+0] * np.sqrt(w**(T - t))
+            y[4*t+1] = dtFlat[4*t+1] * np.sqrt(w**(T - t))
+            y[4*t+2] = dtFlat[4*t+2] * np.sqrt(w**(T - t))
+            y[4*t+3] = dtFlat[4*t+3] * np.sqrt(w**(T - t))
+
+            A[4*t+0] = basisFlat[4*t+0] * np.sqrt(w**(T - t))
+            A[4*t+1] = basisFlat[4*t+1] * np.sqrt(w**(T - t))
+            A[4*t+2] = basisFlat[4*t+2] * np.sqrt(w**(T - t))
+            A[4*t+3] = basisFlat[4*t+3] * np.sqrt(w**(T - t))
+        #solve for y and A using linear regression
+        model = linear_model.Lasso(alpha=lamda, fit_intercept=False, positive=True)
+        model.fit(A,y)
+        paramList[i] = model.coef_
+       
+        #paramList[i] = np.linalg.lstsq(A, y, rcond=None)[0].flatten()
+
+        #lossList[i] = (1.0/T) * np.linalg.norm((A @ paramList[i]) - y.transpose(), ord=2)**2  + lamda*np.linalg.norm(paramList[i], ord=1)
+        lossList[i] = (1.0/T) * np.linalg.norm((A @ paramList[i]) - y.transpose(), ord=2)**2
+       
+    bestQIndex = 0
+    for i in range(resol):
+        if(lossList[bestQIndex] > lossList[i]):
+            bestQIndex = i
+    if(graph):
+        #plot objective function with q on the x-axis
+        fig, ax = plt.subplots(figsize=(18,8))
+        ax.plot(qList, lossList, color='blue')        
+
+    return qList[bestQIndex]
+    
+
+
 
 
 def calculateFutureBasisSmooth(infect, recov, dead, pop, daysToPredict, q=None):
@@ -389,7 +414,7 @@ def calculateFutureBasisSmooth(infect, recov, dead, pop, daysToPredict, q=None):
 
     suscept = q*pop - infect - recov - dead
 
-    basisFlat, dtFlat, B, G, M, params = getBasisFunc(suscept, infect, recov, dead, graph=False) #get basis functions
+    basisFlat, dtFlat, params = getBasisFunc(suscept, infect, recov, dead, graph=False) #get basis functions
 
     T = len(suscept)
     susceptPredict = np.zeros(T+daysToPredict)
@@ -397,11 +422,8 @@ def calculateFutureBasisSmooth(infect, recov, dead, pop, daysToPredict, q=None):
     recovPredict = np.zeros(T+daysToPredict)
     deadPredict = np.zeros(T+daysToPredict)
 
-    lenB = np.shape(B)[1]
-    lenG = np.shape(G)[1]
-    lenM = np.shape(M)[1]
 
-    basisIter = np.zeros((4, lenB+lenG+lenM)) #the latest iteration of the large matrix
+    basisIter = np.zeros((4, 18)) #the latest iteration of the large matrix
     dtIter = np.zeros((4,1)) #latest iteration of dt
 
     #copy over known data
@@ -503,7 +525,7 @@ def calculateFutureBasis(infect, recov, dead, pop, daysToPredict, q=None):
 
     basisIter = np.zeros((4, lenB+lenG+lenM)) #the latest iteration of the large matrix
     dtIter = np.zeros((4,1)) #latest iteration of dt
-    
+
     #copy over known data
     susceptPredict[0:T] = suscept
     infectPredict[0:T] = infect
