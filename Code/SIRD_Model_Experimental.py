@@ -4,7 +4,6 @@
 import numpy as np
 import csv
 import matplotlib.pyplot as plt
-import platform
 from numpy import polynomial
 from sklearn import linear_model
 from scipy.special import eval_legendre
