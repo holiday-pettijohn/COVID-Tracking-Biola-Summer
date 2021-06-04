@@ -399,6 +399,7 @@ patho = "../Data/County Data/"
 
 if platform.system() == "Windows":
     pathc.replace("/", "\\")
+    patho.replacet("/", "\\")
 
 # name of file to extract data from
 filenamei="time_series_covid19_confirmed_US.csv"
