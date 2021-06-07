@@ -35,7 +35,7 @@ def regressionSlopeSeries(points, window):
         if i < half_window:
             continue
         # if there are not enough values after the current one to satisfy window size, break
-        if num_points-i < half_window:
+        if num_points-i <= half_window:
             break
         slope, err = getRegressionSlope(points[i-half_window: i+half_window+1])
         slopes.append(slope)
