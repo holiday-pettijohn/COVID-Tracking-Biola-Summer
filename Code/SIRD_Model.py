@@ -58,11 +58,11 @@ def calculateAverageParams(infected, recovered, dead, pop, q, graph=True, graphV
 
         fig2, ax2 = plt.subplots(3, 1, figsize=(18,8))
         ax2[0].plot(transRate, color='orange', label='Transmission Rate')
-
+        ax2[0].set_ylim(0)
         ax2[1].plot(recovRate, color='green', label='Recovery Rate')
-
+        ax2[1].set_ylim(0)
         ax2[2].plot(deathRate, color='black', label='Death Rate')
-
+        ax2[2].set_ylim(0)
     return paramMatrix
 
 def getBasisFunc(suscept, infect, recov, dead, graph=True):
