@@ -1,13 +1,55 @@
-Date,Category,Notes,Link,Confidence
-3/16/2020,Stay at Home Order,Contra Costa & 6 Other Bay Area Jurisdictions Order,https://cchealth.org/press-releases/2020/0316-Bay-Area-Jurisdictions-Order-Residents-to-Stay-Home.php,-1
-3/17/2020,School Closed,List of California K-12 districts closed for in-person instruction,https://edsource.org/2020/california-k-12-schools-closed-due-to-the-coronavirus/624984,1
-4/22/2020,Mask Mandate,Wearing a mask is now mandatory in Contra Costa County,https://abc7news.com/face-masks-contra-costa-county-mask-law-bay-area-do-i-have-to-wear-a-covering/6123272/,3
-6/3/2020,Business Opened,Coronavirus: Contra Costa County allowing more businesses,https://eastbaytimes.com/2020/06/03/coronavirus-contra-costa-county-allowing-more-businesses-to-open,1
-7/1/2020,Buisness Closed,"Newsom orders new shutdown of restaurants, other indoor",https://www.sfchronicle.com/politics/article/Newsom-orders-shutdown-of-indoor-business-in-19-15380217.php,-1
-9/4/2020,School Opened,"10 Contra Costa Schools Cleared To Open | Lamorinda, CA",https://patch.com/california/lamorinda/4-contra-costa-schools-cleared-open,1
-9/29/2020,Business Opened,More Contra Costa businesses can reopen as COVID-19 data,https://richmondstandard.com/community/2020/09/29/more-contra-costa-businesses-and-services-can-reopen-due-to-improving-covid-19-data/,1
-11/21/2020,Stay at Home Order,COVID Curfew: California Issues Limited Stay-at-Home Order,https://www.nbcbayarea.com/news/coronavirus/california-to-implement-limited-stay-at-home-order/2403576/,6
-1/25/2021,Business Opened | Stay at Home Order Lifted ,"Coronavirus California: Outdoor restaurants, salon reopen for",https://abc7news.com/whats-open-in-bay-area-contra-costa-reopen-stay-at-home-order-east-restaurant/10013740/,1
-2/9/2021,School Opened,Contra Costa schools allowed to reopen grade schools,https://danvillesanramon.com/news/2021/02/09/declining-covid-19-cases-allow-some-contra-costa-schools-churches-to-reopen,1
-4/19/2021,School Opened,3 Bay Area school districts welcome students back to in,https://abc7news.com/bay-area-schools-reopen-reopening-ca-school-safety-guidelines-west-contra-costa-county/10528544/,1
-6/15/2021,Mask “Mandate Lifted”,California's reopening: Where each county stands in color,https://www.sfchronicle.com/projects/coronavirus-map/california-reopening/,-1
+Date,Category,Notes,Link
+1/24/2020,Stay at Home Order,COVID-19 stay-home order to begin in Contra Costa County,https://richmondstandard.com/richmond/2020/12/04/covid-19-stay-home-order-to-begin-in-contra-costa-county-on-sunday/
+1/24/2020,Stay at Home Order,Bay Area imposes stay-home order before California rules,https://www.politico.com/states/california/story/2020/12/04/bay-area-imposes-stay-home-order-before-california-rules-kick-in-1341762
+1/27/2020,Stay at Home Order,Covid-19: San Francisco Bay Area Issues Strict Stay-at-Home,https://www.nytimes.com/live/2020/12/04/world/covid-19-coronavirus
+2/10/2020,School Opened,Reopening California: Elementary school students return to,https://abc7news.com/reopening-california-schools-in-person-learning-bay-area-contra-costa-county-reopen-covid-19/10326706/
+3/16/2020,Stay at Home Order,Contra Costa & 6 Other Bay Area Jurisdictions Order,https://cchealth.org/press-releases/2020/0316-Bay-Area-Jurisdictions-Order-Residents-to-Stay-Home.php
+3/17/2020,Stay at Home Order,Health Officer Order - Contra Costa Health Services,https://cchealth.org/coronavirus/pdf/HO-COVID19-SIP-0316-2020.pdf
+3/22/2020,Mask Mandate,Wearing a mask is now mandatory in Contra Costa County,https://abc7news.com/face-masks-contra-costa-county-mask-law-bay-area-do-i-have-to-wear-a-covering/6123272/
+3/25/2020,School Closed,List of California K-12 districts closed for in-person instruction,https://edsource.org/2020/california-k-12-schools-closed-due-to-the-coronavirus/624984
+4/1/2020,Stay at Home Order,Mayors Message New COVID-19 Stay at Home Order Issued,https://www.antiochca.gov/community/coronavirus-covid-19-information/mayors-message-new-covid-19-stay-at-home-order-issued/
+4/13/2020,Mask Mandate,"Contra Costa Health Order Requires Masks, Temperature",https://cchealth.org/press-releases/2020/0413-cchs-HO-Temp-Checks-HF-Visitors.php
+4/17/2020,Stay at Home Order,ORDER OF THE HEALTH OFFICER OF THE COUNTY OF,https://www.ci.richmond.ca.us/DocumentCenter/View/52810/CCHS-OrderNo-HO-COVID19-08
+4/17/2020,Stay at Home Order,"Contra Costa Health Officer Issues New ""Cover Your Face",https://cchealth.org/press-releases/2020/0417-Cover-Your-Face-Order.php
+4/29/2020,Stay at Home Order,Full text: Bay Area's stay-at-home order has new rules for May,https://www.mercurynews.com/2020/04/29/full-text-bay-areas-stay-at-home-order-extended-through-may
+5/12/2020,Stay at Home Order Lifted,Restaurants in some California counties to reopen under,https://www.cnbc.com/2020/05/12/restaurants-in-some-california-counties-to-reopen-under-restrictions.html
+5/18/2020,Stay at Home Order,COVID-19 restrictions: What is and isn't allowed in Contra,https://www.ktvu.com/news/covid-19-restrictions-what-is-and-isnt-allowed-in-contra-costa-county
+5/25/2020,Stay at Home Order Lifted,Reopening California: These 11 counties aren't allowed to,https://abc30.com/phases-of-reopenign-california-reopening-phase-two-stage/6210841/
+6/3/2020,Business Opened,Coronavirus: Contra Costa County allowing more businesses,https://eastbaytimes.com/2020/06/03/coronavirus-contra-costa-county-allowing-more-businesses-to-open
+6/3/2020,Stay at Home Order Lifted,Coronavirus updates: Here's what's opening in Contra Costa,https://www.sfgate.com/news/editorspicks/article/Coronavirus-updates-Contra-Costa-County-reopening-15313482.php
+6/3/2020,Business Opened,Coronavirus: Contra Costa County allowing more businesses,https://eastbaytimes.com/2020/06/03/coronavirus-contra-costa-county-allowing-more-businesses-to-open
+6/5/2020,School Opened,"Coronavirus: California to allow schools, gyms and bars to",https://www.mercurynews.com/2020/06/05/coronavirus-california-to-allow-schools-gyms-and-bars-to-reopen-as-state-moves-to-phase-3
+6/7/2020,School Closed,Walnut Creek School Closes Abruptly Due To Coronavirus,https://patch.com/california/walnutcreek/walnut-creek-school-closes-abruptly-due-coronavirus
+6/7/2020,Business Opened,"Concord changing rules so reopening restaurants, businesses",https://pioneerpublishers.com/concord-changing-rules-so-reopening-restaurants-businesses-can-expand-outdoor-spaces/
+6/8/2020,Stay at Home Order Lifted,Bay Area coronavirus reopening: Contra Costa County lays,https://abc7news.com/contra-costa-reopening-outdoor-dining-county-shelter-in-place-end-date/6237592/
+6/9/2020,Stay at Home Order Lifted,"Reopening California: Rules for bars, gyms, sporting events",https://abc7news.com/reopen-california-newsom-phase-3-gavin-governor-update-today/6237595/
+6/28/2020,Stay at Home Order,Coronavirus updates: Newsom orders 7 counties to - SFGATE,https://www.sfgate.com/news/editorspicks/article/Coronavirus-updates-muir-woods-santa-cruz-open-15368623.php
+7/1/2020,Stay at Home Order,"Newsom orders new shutdown of restaurants, other indoor",https://www.sfchronicle.com/politics/article/Newsom-orders-shutdown-of-indoor-business-in-19-15380217.php
+7/7/2020,Mask Mandate,Contra Costa Updates Face Mask Health Order To Align With,https://patch.com/california/concord-ca/contra-costa-updates-face-mask-health-order-align-states
+7/9/2020,School Opened,Antioch pushes back start of school year as COVID-19 cases,https://www.eastbaytimes.com/2020/07/09/antioch-knightsen-push-back-start-of-school-year-as-covid-19-cases-surge
+7/20/2020,School Closed,Governor mandates Contra Costa County schools will start,https://www.thepress.net/news/governor-mandates-contra-costa-county-schools-will-start-school-year-with-distance-learning/article_cb9ae5e0-c869-11ea-8edd-3769427fd87d.html
+7/28/2020,Stay at Home Order,Contra Costa will fine violators of county health orders,https://www.mercurynews.com/2020/07/28/contra-costa-supervisors-unanimously-approve-fines-for-health-order-violations
+8/18/2020,Stay at Home Order Lifted,Contra Costa to Begin Accepting Waiver Applications to Allow,https://cchealth.org/press-releases/2020/0817-In-Person-Classes-at-Local-Schools.php
+9/4/2020,School Opened,"10 Contra Costa Schools Cleared To Open | Lamorinda, CA",https://patch.com/california/lamorinda/4-contra-costa-schools-cleared-open
+9/10/2020,School Opened,Contra Costa Schools Begin Reopening As COVID-19,https://www.dvcinquirer.com/news/2020/09/10/contra-costa-schools-begin-reopening-as-covid-19-infections-trend-downward/
+9/29/2020,Business Opened,More Contra Costa businesses can reopen as COVID-19 data,https://richmondstandard.com/community/2020/09/29/more-contra-costa-businesses-and-services-can-reopen-due-to-improving-covid-19-data/
+9/29/2020,Business Opened,COVID-19 Reopening: More Indoor Business Allowed In,https://sanfrancisco.cbslocal.com/2020/09/29/covid-19-reopening-more-indoor-business-allowed-as-contra-costa-reaches-red-tier-in-person-instruction-at-schools-could-start-oct-13/
+9/29/2020,Business Opened,More Businesses and Services Can Reopen in Contra Costa,https://cchealth.org/press-releases/2020/0929-More-Businesses-and-Services-Can-Reopen.php
+9/29/2020,Business Opened,More Businesses and Services Can Reopen in Contra Costa,https://cchealth.org/press-releases/2020/0929-More-Businesses-and-Services-Can-Reopen.php
+10/22/2020,School Opened,Reopening Guidance - Contra Costa County Office of Education,https://www.cccoe.k12.ca.us/news/spotlight/information_about_coronavirus/reopening_guidance
+11/10/2020,School Opened,San Francisco pauses indoor dining and school reopenings,https://www.sfchronicle.com/health/article/Contra-Costa-Santa-Cruz-counties-move-back-on-15716877.php
+11/16/2020,Stay at Home Order,COVID-19 restrictions further tightening in Contra Costa,https://richmondstandard.com/community/2020/11/16/covid-19-restrictions-further-tightening-in-contra-costa-county/
+11/19/2020,Stay at Home Order,COVID Curfew: California Issues Limited Stay-at-Home Order,https://www.nbcbayarea.com/news/coronavirus/california-to-implement-limited-stay-at-home-order/2403576/
+1/9/2021,Stay at Home Order,Bay Area Stay-At-Home order extended indefinitely,https://contracostaherald.com/bay-area-stay-at-home-order-extended-indefinitely/
+1/25/2021,Stay at Home Order Lifted,"Regional Stay-at-Home Order Lifted, Contra Costa Returns to",https://cchealth.org/press-releases/2021/0125-Regional-Stay-at-Home-Order-Lifted-Contra-Costa-Returns-to-Purple-Tier.php
+1/25/2021,Stay at Home Order Lifted,"Contra Costa Returns To Purple Tier, State Lifts Regional",https://patch.com/california/concord-ca/contra-costa-returns-purple-tier-state-lifts-regional-order
+1/25/2021,Business Opened,"Coronavirus California: Outdoor restaurants, salon reopen for",https://abc7news.com/whats-open-in-bay-area-contra-costa-reopen-stay-at-home-order-east-restaurant/10013740/
+2/3/2021,School Opened,Orinda schools could reopen as early as next week,https://www.eastbaytimes.com/2021/02/03/orinda-schools-could-reopen-as-early-as-next-week
+2/9/2021,School Opened,Declining COVID-19 cases allow some Contra Costa schools,https://danvillesanramon.com/news/2021/02/09/declining-covid-19-cases-allow-some-contra-costa-schools-churches-to-reopen
+3/14/2021,Business Opened,"O.C. restaurants, other businesses open indoor operations",https://www.latimes.com/california/story/2021-03-14/restaurants-businesses-reopen-orange-county-los-angeles
+4/3/2021,Mask Mandate Lifted,When will California lift its mask mandate? History says now is,https://www.sfchronicle.com/health/article/When-will-California-lift-its-mask-mandate-16073403.php
+4/6/2021,Stay at Home Order,California could drop most COVID restrictions on June 15,https://www.timesheraldonline.com/2021/04/06/california-could-drop-most-covid-restrictions-on-june-15-leaders-say
+4/19/2021,School Opened,3 Bay Area school districts welcome students back to in,https://abc7news.com/bay-area-schools-reopen-reopening-ca-school-safety-guidelines-west-contra-costa-county/10528544/
+4/21/2021,Stay at Home Order Lifted,Some wonderful Alameda eateries have opened during,https://www.eastbaytimes.com/2021/04/21/around-the-island-fine-alameda-businesses-opened-amid-pandemic
+5/14/2021,Stay at Home Order Lifted,COVID-19 Vaccine Clinics to Open at Contra Costa County,https://cchealth.org/press-releases/2021/0514-COVID-19-Vaccine-Clinics-to-Open-at-Contra-Costa-County-Schools.php
+5/17/2021,Business Closed,Bay Area Businesses Still Need to Enforce Mask Mandate,https://www.nbcbayarea.com/news/coronavirus/bay-area-businesses-still-need-to-enforce-mask-mandate-until-california-reopens/2547373/
