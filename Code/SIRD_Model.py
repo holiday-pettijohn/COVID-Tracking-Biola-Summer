@@ -65,6 +65,15 @@ def calculateAverageParams(infected, recovered, dead, pop, q, graph=True, graphV
         ax2[2].set_ylim(0)
     return paramMatrix
 
+def calculateConstantParams(infected, recovered, dead, pop, q):
+    #since S+I+R+D always equals the same constant S(t) can now be determined
+    suscept = q*pop - infected - recovered - dead
+    
+    dy, X = getSIRDMatricesFlat(suscept, infected, recovered, dead)
+
+    params = np.linalg.lstsq(X, dy, rcond=None)[0].flatten() #solve for beta, gamma, upsilon
+    return params
+
 def getBasisFunc(suscept, infect, recov, dead, graph=True):
     dt, A = getSIRDMatrices(suscept, infect, recov, dead)
 
@@ -370,15 +379,18 @@ def predictMatch(infect, recov, dead, pop, daysToPredict, param=None, qVal=None,
     
     #plot actual and predicted values
     fig, ax = plt.subplots(figsize=(18,8))
-
-    ax.plot(suscept, color='blue', label='suscpetible')
-    ax.plot(infect, color='orange', label='infected')
-    ax.plot(recov, color='green', label='recovered')
-    ax.plot(dead, color='black', label='dead')
-    ax.plot(pS, color='blue', label='suscpetible', linestyle='dashed')
-    ax.plot(pI, color='orange', label='infected', linestyle='dashed')
-    ax.plot(pR, color='green', label='recovered', linestyle='dashed')
-    ax.plot(pD, color='black', label='dead', linestyle='dashed')
+    if(graphVals[0]):
+        ax.plot(suscept, color='blue', label='suscpetible')
+        ax.plot(pS, color='blue', label='suscpetible', linestyle='dashed')
+    if(graphVals[1]):
+        ax.plot(infect, color='orange', label='infected')
+        ax.plot(pI, color='orange', label='infected', linestyle='dashed')
+    if(graphVals[2]):
+        ax.plot(recov, color='green', label='recovered')
+        ax.plot(pR, color='green', label='recovered', linestyle='dashed')
+    if(graphVals[3]):
+        ax.plot(dead, color='black', label='dead')
+        ax.plot(pD, color='black', label='dead', linestyle='dashed')
 
 
 
@@ -595,3 +607,93 @@ def predictMatchBasis(infect, recov, dead, pop, daysToPredict, param=None, qVal=
         ax.plot(dead, color='black', label='dead')
         ax.plot(pD, color='black', label='dead', linestyle='dashed')
 
+
+        
+#predict the next some days using constant parameters, q and params will be calculated if not set
+def calculateConstFuture(infect, recov, dead, pop, daysToPredict, params, q):
+    
+    #A=sirdmatrix, and dt=nextIterMatrix, if we know S(t) we should be able to predict S(t+1)
+    suscept = q*pop - infect - recov - dead
+    dt, A = getSIRDMatrices(suscept, infect, recov, dead)
+
+    sirdPredict = np.zeros((len(A) + daysToPredict, 4, 3))
+    dtPredict = np.zeros((len(dt) + daysToPredict, 4, 1))
+
+    sirdPredict[0:len(A)] = A
+    dtPredict[0:len(dt)] = dt
+
+    susceptPredict = np.zeros(len(suscept) + daysToPredict)
+    infectPredict = np.zeros(len(infect) + daysToPredict)
+    recovPredict = np.zeros(len(recov) + daysToPredict)
+    deadPredict = np.zeros(len(dead) + daysToPredict)
+
+    susceptPredict[0:len(suscept)] = suscept
+    infectPredict[0:len(infect)] = infect
+    recovPredict[0:len(recov)] = recov
+    deadPredict[0:len(dead)] = dead
+
+    T = len(suscept)
+    for t in range(T - 1, T + daysToPredict - 1): #go from last element in known list to end of prediction, see paper for method
+        #populate the 4x3 matrix with parameters
+        sirdPredict[t,0,0] = -(susceptPredict[t] * infectPredict[t]) / (susceptPredict[t] + infectPredict[t])
+        sirdPredict[t,1,0] = (susceptPredict[t] * infectPredict[t]) / (susceptPredict[t] + infectPredict[t])
+        sirdPredict[t,1,1] = -infectPredict[t]
+        sirdPredict[t,1,2] = -infectPredict[t]
+        sirdPredict[t,2,1] = infectPredict[t]
+        sirdPredict[t,3,2] = infectPredict[t]
+
+        #find next dtPredict
+        dtPredict[t,:,0] = (sirdPredict[t] @ params)
+
+        #find next SIRD, based on dtPredict[t] (which is S(t+1) - S(t)) to predict S(t) (and so on)
+        susceptPredict[t+1] = susceptPredict[t] + dtPredict[t,0,0]
+        infectPredict[t+1] = infectPredict[t] + dtPredict[t,1,0]
+        recovPredict[t+1] = recovPredict[t] + dtPredict[t,2,0]
+        deadPredict[t+1] = deadPredict[t] + dtPredict[t,3,0]
+    
+    return susceptPredict, infectPredict, recovPredict, deadPredict, q, params
+
+
+
+#predict future days that are not known
+def predictConstFuture(infect, recov, dead, pop, daysToPredict, params, q, graphVals=[True,True,True,True]):
+    pS, pI, pR, pD, q, params = calculateConstFuture(infect, recov, dead, pop, daysToPredict, params, q)
+    
+    suscept = q*pop - infect - recov - dead
+    
+    #plot actual and predicted values
+    fig, ax = plt.subplots(figsize=(18,8))
+    if(graphVals[0]):
+        ax.plot(suscept, color='blue', label='suscpetible')
+        ax.plot(pS, color='blue', label='suscpetible', linestyle='dashed')
+    if(graphVals[1]):
+        ax.plot(infect, color='orange', label='infected')
+        ax.plot(pI, color='orange', label='infected', linestyle='dashed')
+    if(graphVals[2]):
+        ax.plot(recov, color='green', label='recovered')
+        ax.plot(pR, color='green', label='recovered', linestyle='dashed')
+    if(graphVals[3]):
+        ax.plot(dead, color='black', label='dead')
+        ax.plot(pD, color='black', label='dead', linestyle='dashed')
+
+    
+#predict days that are known for testing purposes, predicts the end portion of the given data
+def predictConstMatch(infect, recov, dead, pop, daysToPredict, params, q, graphVals=[True,True,True,True]):
+    pS, pI, pR, pD, q, params = calculateConstFuture(infect[0:-daysToPredict], recov[0:-daysToPredict], dead[0:-daysToPredict], pop, daysToPredict, params, q)
+    
+    suscept = q*pop - infect - recov - dead
+    
+    #plot actual and predicted values
+    fig, ax = plt.subplots(figsize=(18,8))
+    if(graphVals[0]):
+        ax.plot(suscept, color='blue', label='suscpetible')
+        ax.plot(pS, color='blue', label='suscpetible', linestyle='dashed')
+    if(graphVals[1]):
+        ax.plot(infect, color='orange', label='infected')
+        ax.plot(pI, color='orange', label='infected', linestyle='dashed')
+    if(graphVals[2]):
+        ax.plot(recov, color='green', label='recovered')
+        ax.plot(pR, color='green', label='recovered', linestyle='dashed')
+    if(graphVals[3]):
+        ax.plot(dead, color='black', label='dead')
+        ax.plot(pD, color='black', label='dead', linestyle='dashed')
