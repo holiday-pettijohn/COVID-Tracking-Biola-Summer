@@ -8,6 +8,12 @@ from sklearn import linear_model
 
 #--------------------------------------------------------------------------------------------------------
 
+def approxRecovered(infect): #approximated recoered, assume after 13 days if the new infected is not dead, they recovered
+    recovG = np.zeros(len(infect))
+    for i in range(len(infect) - 13):
+        recovG[i + 13] = infect[i] - dead[i + 13]
+    return recovG
+
 def loadData(filename):
     csvfile=open(filename, newline='', encoding='UTF-8')
     rd = csv.reader(csvfile, delimiter=',')
