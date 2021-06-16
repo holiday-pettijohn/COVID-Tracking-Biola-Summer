@@ -10,63 +10,74 @@ import SIRD_Model
 
 #--------------------------------------------------------------------------------------------------------
 
-#for all functions assume nonLinVars = [q, alpha, C, b1, b2]
-#for all functions assume linVars = [b0, gamma, nu]
-#let beta = e^(-alpha*(t+C)) + (b0 / (1 + (b1*I)**b2))
+def calcRecovered(I, D): #where I is total infections, not current infections
+    R = np.zeros(len(I))
+    R[13:] = I[:-13] + D[13:] #if infected are not dead by 13 days, assume recovery
+    for i in range(len(I) - 13): 
+    return R
 
-def getSIRDFeedMatrix(nonLinVars, pop, I, R, D):
+def calcAsymptomatic(I): #assume any infected were asymptomatic 5 days ago, note that the last 5 days will be zeroed!
+    A = np.zeros(len(I))
+    A[:-5] = I[5:]
+    return A
+
+#for all functions assume nonLinVars = [q,b2,b3], q may or may not be used
+#for all functions assume linVars = [b0, b1, kappa, gamma, nu] (kappa is asymptomatic to infected rate)
+#let beta = b0 + b1/(1+(b2*I)**b3))
+
+def getSAIRDFeedMatrix(nonLinVars, pop, A, I, R, D):
     q = nonLinVars[0]
-    S = q*pop - I - R - D
+    c0 = q*pop
     
-    sirdMatrix = np.zeros((len(S) - 1, 4, 3))
-    nextIterMatrix = np.zeros((len(S) - 1, 4, 1)) #the S(t+1), I(t+1), ... matrix
-
-    temp1 = np.zeros((len(S)-1))
-    for t in range(len(S)-1):
-        temp1[t] = np.exp(-nonLinVars[1]*(t+nonLinVars[2]))
+    sirdMatrix = np.zeros((len(S) - 1, 5, 5))
+    nextIterMatrix = np.zeros((len(S) - 1, 5, 1)) #the S(t+1), I(t+1), ... matrix
     
-    temp2 = (1 / (1 + (nonLinVars[-2]*(I[:-1]/(pop*q)))**nonLinVars[-1]))
+    #susceptible row, dS = 0
+    sirdMatrix[:,0,0] = 0 #assume constant susceptiples, no change
+
+    #asymptomatic row, dA = B(t)*(c0*I / c0 + I) - kA, B(t) = b0 + b1/(1+b2*I^b3)
+    sirdMatrix[:,1,0] = (c0 * I[:-1]) / (c0 + I[:-1]) #b0
+    sirdMatrix[:,1,1] = (c0 * I[:-1]) / (c0 + I[:-1]) * (1 / (1 + (nonLinVars[1]*I[:-1])**2)) #b1
+    sirdMatrix[:,1,2] = -A #kappa
     
-    sirdMatrix[:,0,0] = -(S[:-1] * I[:-1]) / (S[:-1] + I[:-1]) * temp2
+    #infected row
+    sirdMatrix[:,2,2] = A #kappa
+    sirdMatrix[:,2,3] = -I[:-1] #gamma
+    sirdMatrix[:,2,4] = -I[:-1] #nu
 
-    sirdMatrix[:,1,0] = (S[:-1] * I[:-1]) / (S[:-1] + I[:-1]) * temp2
-    sirdMatrix[:,1,1] = -I[:-1]
-    sirdMatrix[:,1,2] = -I[:-1]
+    #recovered row
+    sirdMatrix[:,3,3] = I[:-1] #gamma
 
-    sirdMatrix[:,2,1] = I[:-1]
-
-    sirdMatrix[:,3,2] = I[:-1]
+    sirdMatrix[:,4,4] = I[:-1] #nu
 
     #populate the S(t+1), I(t+1), ... matrix
-    nextIterMatrix[:,0,0] = S[1:] - S[:-1] - ((S[:-1] * I[:-1]) / (S[:-1] + I[:-1]) * temp1[:])
-    nextIterMatrix[:,1,0] = I[1:] - I[:-1] + ((S[:-1] * I[:-1]) / (S[:-1] + I[:-1]) * temp1[:])
-    nextIterMatrix[:,2,0] = R[1:] - R[:-1]
-    nextIterMatrix[:,3,0] = D[1:] - D[:-1]
+    nextIterMatrix[:,0,0] = 0 #no change
+    nextIterMatrix[:,1,0] = A[1:] - A[:-1]
+    nextIterMatrix[:,2,0] = I[1:] - I[:-1]
+    nextIterMatrix[:,3,0] = R[1:] - R[:-1]
+    nextIterMatrix[:,4,0] = D[1:] - D[:-1]
 
     return nextIterMatrix, sirdMatrix
 
-def flattenSIRDMatrix(y, A): #get the matrices in a 2d format, time dimension is put into the first
+def flattenSAIRDMatrix(y, X): #get the matrices in a 2d format, time dimension is put into the first
     T = len(y)
-    newY = np.zeros((T*4, 1))
-    newA = np.zeros((T*4, 3))
+    rowCount = np.shape(y)[1]
+    newY = np.zeros((T*rowCount, 1))
+    newX = np.zeros((T*rowCount, np.shape(X)[2]))
     
+    #map to flat matrix
     for t in range(T):
-        newY[t*4 + 0] = y[t, 0]
-        newY[t*4 + 1] = y[t, 1]
-        newY[t*4 + 2] = y[t, 2]
-        newY[t*4 + 3] = y[t, 3]
-        
-        newA[t*4 + 0] = A[t, 0]
-        newA[t*4 + 1] = A[t, 1]
-        newA[t*4 + 2] = A[t, 2]
-        newA[t*4 + 3] = A[t, 3]
-    return newY, newA
+        for i in range(rowCount):
+            newY[t*rowCount + i] = y[t, i]
+            newX[t*rowCount + i] = X[t, i]
+            
+    return newY, newX
 
 #--------------------------------------------------------------------------------------------------------
 
 
-def errorSIRD(nonLinVars, linVars, pop, I, R, D, lamda, w): #the custom error function for SIRD    
-    y, A = getSIRDFeedMatrix(nonLinVars, pop, I, R, D)
+def errorSIRD(nonLinVars, linVars, pop, A, I, R, D, lamda, w): #the custom error function for SIRD    
+    y, A = getSIRDFeedMatrix(nonLinVars, pop, A, I, R, D)
     
     totalError = 0
     #see paper for optimization function
@@ -79,33 +90,26 @@ def errorSIRD(nonLinVars, linVars, pop, I, R, D, lamda, w): #the custom error fu
     totalError = totalError + lamda*np.linalg.norm(params, ord=1) #regularization error
     return totalError
 
-def getLinVarsSIRD(nonLinVars, pop, I, R, D, lamda, w): #calculate the linear vars for the SIRD model, b0, gamma, nu  
-    y, A = getSIRDFeedMatrix(nonLinVars, pop, I, R, D)
-    nextIterMatrix, sirdMatrix = flattenSIRDMatrix(y, A)
+def getLinVarsSAIRD(nonLinVars, pop, A, I, R, D, lamda, w): #calculate the linear vars for the SIRD model, b0, gamma, nu  
+    y, X = getSIRDFeedMatrix(nonLinVars, pop, A, I, R, D)
+    nextIterMatrix, sirdMatrix = flattenSIRDMatrix(y, X)
     
-    T = int(len(nextIterMatrix)/4)
+    rowCount = np.shape(y)[1]
+    T = int(len(nextIterMatrix)/rowCount)
     
     #construct y and A, see paper for solving the lasso optimization
-    y = np.zeros( (T*4, 1) )
-    A = np.zeros( (T*4, np.shape(sirdMatrix)[1]) )
+    y = np.zeros( (T*rowCount, 1) )
+    X = np.zeros( (T*rowCount, np.shape(sirdMatrix)[1]) )
     
     for t in range(T):
-        
-        y[4*t+0] = nextIterMatrix[4*t+0] * np.sqrt(w**(T - t))
-        y[4*t+1] = nextIterMatrix[4*t+1] * np.sqrt(w**(T - t))
-        y[4*t+2] = nextIterMatrix[4*t+2] * np.sqrt(w**(T - t))
-        y[4*t+3] = nextIterMatrix[4*t+3] * np.sqrt(w**(T - t))
-        
-        A[4*t+0] = sirdMatrix[4*t+0] * np.sqrt(w**(T - t))
-        A[4*t+1] = sirdMatrix[4*t+1] * np.sqrt(w**(T - t))
-        A[4*t+2] = sirdMatrix[4*t+2] * np.sqrt(w**(T - t))
-        A[4*t+3] = sirdMatrix[4*t+3] * np.sqrt(w**(T - t))
+        for i in range(rowCount):
+            y[rowCount*t+i] = nextIterMatrix[rowCount*t+i] * np.sqrt(w**(T - t))
+            X[rowCount*t+i] = sirdMatrix[rowCount*t+i] * np.sqrt(w**(T - t))
     
     try: #fit model using lasso
         model = linear_model.Lasso(alpha=lamda, fit_intercept=False, positive=True)
         model.fit(A,y)
         params = model.coef_
-        
     except: #did not converge, set params to zero
         params = np.zeros((np.shape(A)[1]))
         #print("linal didn't converge")
@@ -113,7 +117,7 @@ def getLinVarsSIRD(nonLinVars, pop, I, R, D, lamda, w): #calculate the linear va
     #totalError = (1.0/T) * np.linalg.norm((A @ params) - y.transpose(), ord=2)**2  + lamda*np.linalg.norm(params, ord=1)
     return list(params)
 
-def gridNonLinVars(constraints, varResols, pop, I, R, D, lamda, w): #solve for non linear vars, q, b1, b2, b3
+def gridNonLinVars(constraints, varResols, pop, A, I, R, D, lamda, w): #solve for non linear vars, q, b1, b2, b3
     
     #varSteps[:] = constraints[:][0] + (constraints[:][1] - constraints[:][0])/varResols[:]
     varSteps = []
@@ -129,8 +133,8 @@ def gridNonLinVars(constraints, varResols, pop, I, R, D, lamda, w): #solve for n
     for i in range(len(constraints)): #fill minVars with the minimum starting value
         minVars.append((constraints[i][0]))
     
-    linVars = getLinVarsSIRD(minVars, pop, I, R, D, lamda, w)
-    minCost = errorSIRD(minVars, paramArg, pop, I, R, D, lamda, w) #the custom error function for SIRD
+    linVars = getLinVarsSAIRD(minVars, pop, A, I, R, D, lamda, w)
+    minCost = errorSAIRD(minVars, paramArg, pop, A, I, R, D, lamda, w) #the custom error function for SIRD
     
     currVars = minVars.copy() #deep copy
     currCost = minCost
