@@ -10,6 +10,54 @@ import SIRD_Model
 
 #--------------------------------------------------------------------------------------------------------
 
+def getGamma(I, R):
+    y = np.zeros((len(I)-1,1))
+    X = np.zeros((len(I)-1,1))
+    
+    # R(t+1) - R(t) = gamma*I(t)
+    y[:,0] = R[1:] - R[:-1]
+    X[:,0] = I[:-1]
+
+    return np.linalg.lstsq(X, y, rcond = None)[0].flatten()[0] #solve for gamma
+
+def getNu(I, D):
+    y = np.zeros((len(I)-1,1))
+    X = np.zeros((len(I)-1,1))
+    
+    # D(t+1) - D(t) = nu*I(t)
+    y[:,0] = D[1:] - D[:-1]
+    X[:,0] = I[:-1]
+
+    return np.linalg.lstsq(X, y, rcond = None)[0].flatten()[0] #solve for nu
+
+def getKappa(A, I, gamma, nu): #solve for kappa
+    y = np.zeros((len(A)-1,1))
+    X = np.zeros((len(A)-1,1))
+    
+    #dI = kappa*A - gamma*I - nu*I
+    #dI + gamma*I + nu*I = kappa*A
+    y[:,0] = (I[1:] - I[:-1]) + gamma*I[:-1] + nu*I[:-1]
+    X[:,0] = A[:-1]
+    
+    return np.linalg.lstsq(X, y, rcond = None)[0].flatten()[0] #solve for kappa
+
+
+def getBeta(q,pop, A, I, betaNonLin, kappa): #solve for b0 and b1 , kappa, gamma, nu should be solved for
+    y = np.zeros((len(I)-1,1))
+    X = np.zeros((len(I)-1,2)) #column for b0, b1
+    
+    #betaNonLin = [b2,b3]
+    #dS = 0, this doesn't need to be modeled
+    #dA = beta0 * (c0 * I) / (c0 + I) + beta1 * (1/1 + b2I**b3) * (c0 * I) / (c0 + I) - kappa*A
+    #dA+- kappa*A = beta0 * (c0 * I) / (c0 + I) + beta1 * (1/1 + b2I**b3) * (c0 * I) / (c0 + I)
+    #c0 = q*pop
+    y[:,0] = (A[1:] - A[:-1]) + kappa*A[:-1]
+    X[:,0] = (q*pop *I[:-1]) / (q*pop + I[:-1]) #beta0
+    X[:,1] = (1/(1 + (betaNonLin[-2] * (I[:-1] / q*pop) )**betaNonLin[-1] )) * (q*pop *I[:-1]) / (q*pop + I[:-1]) #beta1
+    
+    return np.linalg.lstsq(X, y, rcond = None)[0].flatten() #solve for b0 and b1
+
+
 def calcRecovered(I, D): #where I is total infections, not current infections
     R = np.zeros(len(I))
     R[13:] = I[:-13] + D[13:] #if infected are not dead by 13 days, assume recovery
@@ -297,6 +345,7 @@ def predictFuture(nonLinVars, linVars, A,I,R,D, pop, daysToPredict, graphVals=[T
     #ax2.plot(calculateAverageParams(A,I,R,D, pop, q, graph=False)[:,0], color="red") #time varying beta
     #ax2.plot(betaConstGraph, color="brown") #constant beta
     ax2.plot(calculateBeta(nonLinVars, linVars, pop, pI), color="orange")
+    ax2.set_ylim(0)
 
     
 #predict days that are known for testing purposes, predicts the end portion of the given data
@@ -332,6 +381,7 @@ def predictMatch(nonLinVars, linVars, A,I,R,D, pop, daysToPredict, graphVals=[Tr
     #ax2.plot(calculateAverageParams(A,I,R,D, pop, q, graph=False)[:,0], color="red") #time varying beta
     #ax2.plot(betaConstGraph, color="brown") #constant beta
     ax2.plot(calculateBeta(nonLinVars, linVars, pop, pI), color="orange")
+    ax2.set_ylim(0)
 
 #---------------------------------------------------------
                  
