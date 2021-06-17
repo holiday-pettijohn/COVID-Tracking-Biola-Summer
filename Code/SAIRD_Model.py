@@ -21,34 +21,29 @@ def calcAsymptomatic(I, shift=5): #assume any infected were asymptomatic 5 days 
     A[-shift:] = I[-shift] #last shift days can't fairly be approximated, roughly assume they are the same as infected
     return A
 
-#for all functions assume nonLinVars = [q,b2,b3], q may or may not be used
-#for all functions assume linVars = [b0, b1, kappa, gamma, nu] (kappa is asymptomatic to infected rate)
-#let beta = b0 + b1/(1+(b2*I)**b3))
+#linVars = [beta, kappa, gamma, nu]
 
-def getMatrix(nonLinVars, pop, A, I, R, D):
-    q = nonLinVars[0]
-    c0 = q*pop
+def getMatrix(q, pop, A, I, R, D):    
     
-    sirdMatrix = np.zeros((len(A) - 1, 5, 5))
+    sirdMatrix = np.zeros((len(A) - 1, 5, 4))
     nextIterMatrix = np.zeros((len(A) - 1, 5, 1)) #the S(t+1), I(t+1), ... matrix
     
     #susceptible row, dS = 0
     sirdMatrix[:,0,0] = 0 #assume constant susceptiples, no change
 
     #asymptomatic row, dA = B(t)*(c0*I / c0 + I) - kA, B(t) = b0 + b1/(1+b2*I^b3)
-    sirdMatrix[:,1,0] = (c0 * I[:-1]) / (c0 + I[:-1]) #b0
-    sirdMatrix[:,1,1] = (c0 * I[:-1]) / (c0 + I[:-1]) * (1 / (1 + (nonLinVars[1]*I[:-1]/(q*pop))**nonLinVars[-1])) #b1
-    sirdMatrix[:,1,2] = -A[:-1] #kappa
+    sirdMatrix[:,1,0] = (q*pop * I[:-1]) / (q*pop + I[:-1]) #b
+    sirdMatrix[:,1,1] = -A[:-1] #kappa
     
     #infected row
-    sirdMatrix[:,2,2] = A[:-1] #kappa
-    sirdMatrix[:,2,3] = -I[:-1] #gamma
-    sirdMatrix[:,2,4] = -I[:-1] #nu
+    sirdMatrix[:,2,1] = A[:-1] #kappa
+    sirdMatrix[:,2,2] = -I[:-1] #gamma
+    sirdMatrix[:,2,3] = -I[:-1] #nu
 
     #recovered row
-    sirdMatrix[:,3,3] = I[:-1] #gamma
+    sirdMatrix[:,3,2] = I[:-1] #gamma
 
-    sirdMatrix[:,4,4] = I[:-1] #nu
+    sirdMatrix[:,4,3] = I[:-1] #nu
 
     #populate the S(t+1), I(t+1), ... matrix
     nextIterMatrix[:,0,0] = 0 #no change
@@ -75,9 +70,8 @@ def flattenMatrix(y, X): #get the matrices in a 2d format, time dimension is put
 
 #--------------------------------------------------------------------------------------------------------
 
-
-def errorFunc(nonLinVars, linVars, pop, A, I, R, D, lamda, w): #the custom error function for SIRD    
-    y, A = getMatrix(nonLinVars, pop, A, I, R, D)
+def errorFunc(q, linVars, pop, A, I, R, D, lamda, w): #the custom error function for SIRD    
+    y, A = getMatrix(q, pop, A, I, R, D)
     
     totalError = 0
     #see paper for optimization function
@@ -87,11 +81,12 @@ def errorFunc(nonLinVars, linVars, pop, A, I, R, D, lamda, w): #the custom error
     
     #return (1.0/T) * np.linalg.norm((A @ params) - y.transpose(), ord=2)**2  + lamda*np.linalg.norm(params, ord=1)
     totalError = (1.0/T)*totalError #divide by timeframe
-    totalError = totalError + lamda*np.linalg.norm(params, ord=1) #regularization error
+    totalError = totalError + lamda*np.linalg.norm(linVars, ord=1) #regularization error
     return totalError
 
-def getLinVars(nonLinVars, pop, A, I, R, D, lamda, w): #calculate the linear vars for the SIRD model, b0, gamma, nu  
-    y, X = getMatrix(nonLinVars, pop, A, I, R, D)
+#
+def getLinVars(q, pop, A, I, R, D, lamda, w): #calculate the linear vars for the SIRD model, b0, gamma, nu  
+    y, X = getMatrix(q, pop, A, I, R, D)
     nextIterMatrix, sairdMatrix = flattenMatrix(y, X)
     
     rowCount = np.shape(y)[1]
@@ -106,107 +101,45 @@ def getLinVars(nonLinVars, pop, A, I, R, D, lamda, w): #calculate the linear var
             y[rowCount*t+i] = nextIterMatrix[rowCount*t+i] * np.sqrt(w**(T - t))
             X[rowCount*t+i] = sairdMatrix[rowCount*t+i] * np.sqrt(w**(T - t))
     
-    try: #fit model using lasso
-        model = linear_model.Lasso(alpha=lamda, fit_intercept=False, positive=True)
-        model.fit(X,y)
-        params = model.coef_
+    try: #fit model using lasso or least squares
+        #model = linear_model.Lasso(alpha=lamda, fit_intercept=False, positive=True)
+        #model.fit(X,y)
+        #params = model.coef_
+        params = (np.linalg.lstsq(X,y, rcond=None)[0]).flatten()
     except: #did not converge, set params to zero
         params = np.zeros((np.shape(X)[1]))
         #print("linal didn't converge")
     
     #totalError = (1.0/T) * np.linalg.norm((A @ params) - y.transpose(), ord=2)**2  + lamda*np.linalg.norm(params, ord=1)
-    return list(params)
+    return params
 
-def gridNonLinVars(constraints, varResols, pop, A, I, R, D, lamda, w): #solve for non linear vars, q, b1, b2, b3
+#solve for parameters for every t
+def getTimeVars(q, pop, A, I, R, D, graph=False): #calculate the linear vars for the SIRD model, b(t), kappa(t), gamma(t), nu(t)
+    y, X = getMatrix(q, pop, A, I, R, D)
     
-    #varSteps[:] = constraints[:][0] + (constraints[:][1] - constraints[:][0])/varResols[:]
-    varSteps = []
-    for i in range(len(constraints)):
-        varSteps.append(constraints[i][0] + (constraints[i][1] - constraints[i][0])/varResols[i]) #min + (max - min)/resol
-        if(varSteps[-1] == 0):
-            varSteps[-1] = 1 #avoids infinite loop and zero step movement
-            
-    #note beta = b0/(1 + (b1*I + b2*D)^b3)
-    #assume starting vals as best starting value
-    #minVars = constraints[:][0]
-    minVars = []
-    for i in range(len(constraints)): #fill minVars with the minimum starting value
-        minVars.append((constraints[i][0]))
+    varMatrix = np.zeros((np.shape(X)[2], len(X)))
+    for t in range(len(X)):
+        varMatrix[:,t] = (np.linalg.lstsq(X[t],y[t], rcond=None)[0]).transpose()
     
-    linVars = getLinVarsSAIRD(minVars, pop, A, I, R, D, lamda, w)
-    minCost = errorSAIRD(minVars, paramArg, pop, A, I, R, D, lamda, w) #the custom error function for SIRD
-    
-    currVars = minVars.copy() #deep copy
-    currCost = minCost
-    varIndex = 0 #which var to iterate
-    #while the var isn't above it's max
-    continueLoop = True
-    #this could be achieved by using many for loops, but this is a more generalized appraoch
-    while(continueLoop):
-    
-        linVars = getLinVars(currVars, pop, A, I, R, D, lamda, w)
-        currCost = errorFunc(currVars, paramArg, pop, A, I, R, D, lamda, w)
-        if(currCost < minCost):
-            minCost = currCost
-            minVars = currVars.copy()
-    
-        #print("at: ", currVars, currCost)
+    if(graph): #plot the vars over time
+        fig2, ax2 = plt.subplots(4, figsize=(18,8))
+        ax2[0].plot(varMatrix[0], color="orange")
+        ax2[1].plot(varMatrix[1], color="red")
+        ax2[2].plot(varMatrix[2], color="cyan")
+        ax2[3].plot(varMatrix[3], color="black")
 
-        currVars[varIndex] = currVars[varIndex] + varSteps[varIndex]
-        while(currVars[varIndex] > constraints[varIndex][1]): #move varIndex anditerate appropriately
-                currVars[varIndex] = constraints[varIndex][0] #reset to minimum
-                varIndex = varIndex + 1 #move to iterating the next variable
-
-                if(varIndex == len(currVars)): #out of range, end Loop
-                    continueLoop = False
-                    break
-                currVars[varIndex] = currVars[varIndex] + varSteps[varIndex] #iterate var        
-        varIndex = 0 
-       
-    linVars = getLinVars(minVars, pop, A, I, R, D, lamda, w) #set lin vars according to the min nonlin vars
-    return minVars, linVars #return vars and linVars
-
-def solveAllVars(nonLinConstraints, nonLinResol, pop, A, I, R, D, lamda, w):
-    nonLinVars, linVars = gridNonLinVars(nonLinConstraints, nonLinResol, pop, A, I, R, D, lamda, w)
-
-    print("Solution: ")
-    print("q:  ", nonLinVars[0])
-    print("b2: ", nonLinVars[1])
-    print("b3: ", nonLinVars[2])
-    print("b0: ", linVars[0])
-    print("b1: ", linVars[1])
-    print("k : ", linVars[2])
-    print("g:  ", linVars[3])
-    print("nu: ", linVars[4])
-    print("cost: ", errorFunc(nonLinVars, linVars, pop, A, I, R, D, lamda, w))
-    print() #spacer
-
-    return nonLinVars, linVars
-
-#------------------------------------------------------------------
-
-def calculateBeta(nonLinVars, linVars, pop, I): #how to calculate beta as function of time
-    
-    q = nonLinVars[0]
-    
-    b0 = linVars[0]
-    b1 = linVars[1]
-    b2 = nonLinVars[1]
-    b3 = nonLinVars[2]
-    
-    return b0 + (b1 / (1 + (b2*(I[:-1]/(pop*q)))**b3 ))
+    return varMatrix
 
 #------------------------------------------------------------------
 
 #predict the next some days using constant parameters, q and params will be calculated if not set, uses smoothing method  from paper
-def calculateFuture(nonLinVars, linVars, A,I,R,D, pop, daysToPredict):
+def calculateFuture(linVars, A,I,R,D, q, pop, daysToPredict):
     
     #A=sirdmatrix, and dt=nextIterMatrix, if we know S(t) we should be able to predict S(t+1)
-    q = nonLinVars[0]
     S = q*pop - A - I - R - D
     
     #set up matrices and starting info
-    dt, X = getMatrix(nonLinVars, pop, A,I,R,D)
+    dt, X = getMatrix(q, pop, A,I,R,D)
 
     sairdPredict = np.zeros((len(X) + daysToPredict, np.shape(X)[1], np.shape(X)[2]))
     dtPredict = np.zeros((len(dt) + daysToPredict, np.shape(dt)[1], 1))
@@ -227,31 +160,27 @@ def calculateFuture(nonLinVars, linVars, A,I,R,D, pop, daysToPredict):
     DP[0:len(D)] = D
 
     T = len(A) - 1
-    c0 = q*pop
     for t in range(T, T + daysToPredict): #go from last element in known list to end of prediction, see paper for method
         #populate the 5x5 matrix with parameters
         #susceptible row, dS = 0
         sairdPredict[:,0,0] = 0 #assume constant susceptiples, no change
 
         #asymptomatic row, dA = B(t)*(c0*I / c0 + I) - kA, B(t) = b0 + b1/(1+b2*I^b3)
-        sairdPredict[:,1,0] = (c0 * IP[t]) / (c0 + IP[t]) #b0
-        sairdPredict[:,1,1] = (c0 * IP[t]) / (c0 + IP[t]) * (1 / (1 + (nonLinVars[1]*(IP[t]/(q*pop)))**nonLinVars[-1])) #b1
-        sairdPredict[:,1,2] = -AP[t] #kappa
+        sairdPredict[:,1,0] = (q*pop * IP[t]) / (q*pop + IP[t]) #b0
+        sairdPredict[:,1,1] = -AP[t] #kappa
 
         #infected row
-        sairdPredict[:,2,2] = AP[t] #kappa
-        sairdPredict[:,2,3] = -IP[t] #gamma
-        sairdPredict[:,2,4] = -IP[t] #nu
+        sairdPredict[:,2,1] = AP[t] #kappa
+        sairdPredict[:,2,2] = -IP[t] #gamma
+        sairdPredict[:,2,3] = -IP[t] #nu
 
         #recovered row
-        sairdPredict[:,3,3] = IP[t] #gamma
+        sairdPredict[:,3,2] = IP[t] #gamma
 
-        sairdPredict[:,4,4] = IP[t] #nu
+        sairdPredict[:,4,3] = IP[t] #nu
 
         #predict next iter matrix
         dtPredict[t,:,0] = (sairdPredict[t] @ linVars)
-        
-        #print((c0 * IP[t]) / (c0 + IP[t])*linVars[0] + linVars[1]*(c0 * IP[t]) / (c0 + IP[t]) * (1 / (1 + (nonLinVars[1]*IP[t])**nonLinVars[-1])) )
         
         #find next SIRD, based on dtPredict[t] (which is S(t+1) - S(t)) to predict S(t) (and so on)
         SP[t+1] = SP[t] + dtPredict[t,0,0]
@@ -265,8 +194,8 @@ def calculateFuture(nonLinVars, linVars, A,I,R,D, pop, daysToPredict):
 
 
 #predict future days that are not known
-def predictFuture(nonLinVars, linVars, A,I,R,D, pop, daysToPredict, graphVals=[True,True,True,True]):
-    pS, pA, pI, pR, pD = calculateFuture(nonLinVars, linVars, A,I,R,D, pop, daysToPredict)
+def predictFuture(linVars, A,I,R,D, q, pop, daysToPredict, graphVals=[True,True,True,True]):
+    pS, pA, pI, pR, pD = calculateFuture(linVars, A,I,R,D, q, pop, daysToPredict)
     
     #q = nonLinVars[0]
     #S = nonLinVars[0]*pop - A - I - R - D
@@ -288,23 +217,13 @@ def predictFuture(nonLinVars, linVars, A,I,R,D, pop, daysToPredict, graphVals=[T
     if(graphVals[3]):
         ax.plot(D, color='black', label='dead')
         ax.plot(pD, color='black', label='dead', linestyle='dashed')
-      
-    #plot beta over time
-    #betaConst = SIRD_Model.calculateConstantParams(infect, recov, dead, pop, q)[0]
-    #betaConstGraph = np.ones((len(infect)-1))*betaConst #fill array with const value
-    
-    fig2, ax2 = plt.subplots(figsize=(18,8))
-    #ax2.plot(calculateAverageParams(A,I,R,D, pop, q, graph=False)[:,0], color="red") #time varying beta
-    #ax2.plot(betaConstGraph, color="brown") #constant beta
-    ax2.plot(calculateBeta(nonLinVars, linVars, pop, pI), color="orange")
 
     
 #predict days that are known for testing purposes, predicts the end portion of the given data
-def predictMatch(nonLinVars, linVars, A,I,R,D, pop, daysToPredict, graphVals=[True,True,True,True]):
-    pS, pA, pI, pR, pD = calculateFuture(nonLinVars, linVars, A[0:-daysToPredict], I[0:-daysToPredict], R[0:-daysToPredict], D[0:-daysToPredict], pop, daysToPredict)
+def predictMatch(linVars, A,I,R,D, q, pop, daysToPredict, graphVals=[True,True,True,True]):
+    pS, pA, pI, pR, pD = calculateFuture(linVars, A[0:-daysToPredict], I[0:-daysToPredict], R[0:-daysToPredict], D[0:-daysToPredict], q,pop, daysToPredict)
     
-    q = nonLinVars[0]
-    S = nonLinVars[0]*pop - A - I - R - D
+    #S = q*pop - A - I - R - D
     
     #plot actual and predicted values
     fig, ax = plt.subplots(figsize=(18,8))
@@ -323,15 +242,25 @@ def predictMatch(nonLinVars, linVars, A,I,R,D, pop, daysToPredict, graphVals=[Tr
     if(graphVals[3]):
         ax.plot(D, color='black', label='dead')
         ax.plot(pD, color='black', label='dead', linestyle='dashed')
-      
-    #plot beta over time
-    #betaConst = SIRD_Model.calculateConstantParams(infect, recov, dead, pop, q)[0]
-    #betaConstGraph = np.ones((len(infect)-1))*betaConst #fill array with const value
-    
-    fig2, ax2 = plt.subplots(figsize=(18,8))
-    #ax2.plot(calculateAverageParams(A,I,R,D, pop, q, graph=False)[:,0], color="red") #time varying beta
-    #ax2.plot(betaConstGraph, color="brown") #constant beta
-    ax2.plot(calculateBeta(nonLinVars, linVars, pop, pI), color="orange")
 
 #---------------------------------------------------------
-                 
+                
+#q and pop are only needed if graphing S
+def graphData(A,I,R,D, graphVals=[True, True,True,True],q=None, pop=None):
+    fig, ax = plt.subplots(figsize=(18,8))
+    if(graphVals[0]):
+        ax.plot(A, color="orange", label="asymptomatic")
+    if(graphVals[0]):
+        ax.plot(I, color="red", label="infected")
+    if(graphVals[0]):
+        ax.plot(R, color="cyan", label="recovered")
+    if(graphVals[0]):
+        ax.plot(D, color="black", label="dead")
+    if((q!=None) and (pop!=None)):
+        ax.plot((q*pop - A - I - R - D), color="blue", label="susceptible")
+
+    
+    
+    
+    
+    
