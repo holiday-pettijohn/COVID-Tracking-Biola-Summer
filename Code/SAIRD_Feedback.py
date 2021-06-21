@@ -10,6 +10,14 @@ import SIRD_Model
 
 #--------------------------------------------------------------------------------------------------------
 
+def getLinVars(A, I, R, D, q, pop, betaNonLin): 
+    gamma = getGamma(I,R)
+    nu = getNu(I,D)
+    kappa = getKappa(A,I,gamma,nu)
+    beta = getBeta(q,pop,A,I,betaNonLin,kappa)
+    
+    return [beta[0], beta[1], kappa, gamma, nu]
+
 def getGamma(I, R):
     y = np.zeros((len(I)-1,1))
     X = np.zeros((len(I)-1,1))
@@ -63,10 +71,17 @@ def calcRecovered(I, D): #where I is total infections, not current infections
     R[13:] = I[:-13] + D[13:] #if infected are not dead by 13 days, assume recovery
     return R
 
-def calcAsymptomatic(I, shift=5): #assume any infected were asymptomatic 5 days ago (or whatever shift equals)
+#A_total = I_total (at whatever shift)
+def calcAsymptomatic(I, R, D, shift=5): #assume any infected were asymptomatic 5 days ago (or whatever shift equals)
     A = np.zeros(len(I))
-    A[:-shift] = I[shift:]
-    A[-shift:] = I[-shift] #last shift days can't fairly be approximated, roughly assume they are the same as infected
+    #A[:-shift] = I[shift:]
+    #A[-shift:] = I[-shift] #last shift days can't fairly be approximated, roughly assume they are the same as infected
+    
+    totalI = I+R+D #newI runs from 0 to T-1
+    A[:-shift] = totalI[shift:] #set A on range 0 to T-1 - shift using newI on range shift to T-1
+    A[:-shift] = A[:-shift] - totalI[:-shift] #if not a part of the asymptomatic group, they must be infected/recov/dead
+    for i in range(shift):
+        A[-i-1] = A[-shift-1] #just use last day for very rough approximation
     return A
 
 #for all functions assume nonLinVars = [q,b2,b3], q may or may not be used
@@ -124,48 +139,47 @@ def flattenMatrix(y, X): #get the matrices in a 2d format, time dimension is put
 #--------------------------------------------------------------------------------------------------------
 
 
-def errorFunc(nonLinVars, linVars, pop, A, I, R, D, lamda, w): #the custom error function for SIRD    
+def errorFunc(nonLinVars, linVars, pop, A, I, R, D): #the custom error function for SIRD    
     y, A = getMatrix(nonLinVars, pop, A, I, R, D)
     
     totalError = 0
     #see paper for optimization function
     T = len(A)
     for t in range(T):
-        totalError = totalError + (w**(T - t))*(np.linalg.norm((A[t] @ np.asarray(linVars)) - y[t].transpose(), ord=2)**2)
+        totalError = totalError + (np.linalg.norm((A[t] @ np.asarray(linVars)) - y[t].transpose(), ord=2)**2)
     
     #return (1.0/T) * np.linalg.norm((A @ params) - y.transpose(), ord=2)**2  + lamda*np.linalg.norm(params, ord=1)
     totalError = (1.0/T)*totalError #divide by timeframe
-    totalError = totalError + lamda*np.linalg.norm(params, ord=1) #regularization error
     return totalError
 
-def getLinVars(nonLinVars, pop, A, I, R, D, lamda, w): #calculate the linear vars for the SIRD model, b0, gamma, nu  
-    y, X = getMatrix(nonLinVars, pop, A, I, R, D)
-    nextIterMatrix, sairdMatrix = flattenMatrix(y, X)
-    
-    rowCount = np.shape(y)[1]
-    T = int(len(nextIterMatrix)/rowCount)
-    
-    #construct y and X, see paper for solving the lasso optimization
-    y = np.zeros( (T*rowCount, 1) )
-    X = np.zeros( (T*rowCount, np.shape(sairdMatrix)[1]) )
-    
-    for t in range(T):
-        for i in range(rowCount):
-            y[rowCount*t+i] = nextIterMatrix[rowCount*t+i] * np.sqrt(w**(T - t))
-            X[rowCount*t+i] = sairdMatrix[rowCount*t+i] * np.sqrt(w**(T - t))
-    
-    try: #fit model using lasso
-        model = linear_model.Lasso(alpha=lamda, fit_intercept=False, positive=True)
-        model.fit(X,y)
-        params = model.coef_
-    except: #did not converge, set params to zero
-        params = np.zeros((np.shape(X)[1]))
-        #print("linal didn't converge")
-    
-    #totalError = (1.0/T) * np.linalg.norm((A @ params) - y.transpose(), ord=2)**2  + lamda*np.linalg.norm(params, ord=1)
-    return list(params)
+#def getLinVars(nonLinVars, pop, A, I, R, D, lamda, w): #calculate the linear vars for the SIRD model, b0, gamma, nu  
+#    y, X = getMatrix(nonLinVars, pop, A, I, R, D)
+#    nextIterMatrix, sairdMatrix = flattenMatrix(y, X)
+#    
+#    rowCount = np.shape(y)[1]
+#    T = int(len(nextIterMatrix)/rowCount)
+#    
+#    #construct y and X, see paper for solving the lasso optimization
+#    y = np.zeros( (T*rowCount, 1) )
+#    X = np.zeros( (T*rowCount, np.shape(sairdMatrix)[1]) )
+#    
+#    for t in range(T):
+#        for i in range(rowCount):
+#            y[rowCount*t+i] = nextIterMatrix[rowCount*t+i] * np.sqrt(w**(T - t))
+#            X[rowCount*t+i] = sairdMatrix[rowCount*t+i] * np.sqrt(w**(T - t))
+#    
+#    try: #fit model using lasso
+#        model = linear_model.Lasso(alpha=lamda, fit_intercept=False, positive=True)
+#        model.fit(X,y)
+#        params = model.coef_
+#    except: #did not converge, set params to zero
+#        params = np.zeros((np.shape(X)[1]))
+#        #print("linal didn't converge")
+#    
+#    #totalError = (1.0/T) * np.linalg.norm((A @ params) - y.transpose(), ord=2)**2  + lamda*np.linalg.norm(params, ord=1)
+#    return list(params)
 
-def gridNonLinVars(constraints, varResols, pop, A, I, R, D, lamda, w): #solve for non linear vars, q, b1, b2, b3
+def gridNonLinVars(constraints, varResols, pop, A, I, R, D): #solve for non linear vars, q, b1, b2, b3
     
     #varSteps[:] = constraints[:][0] + (constraints[:][1] - constraints[:][0])/varResols[:]
     varSteps = []
@@ -181,8 +195,8 @@ def gridNonLinVars(constraints, varResols, pop, A, I, R, D, lamda, w): #solve fo
     for i in range(len(constraints)): #fill minVars with the minimum starting value
         minVars.append((constraints[i][0]))
     
-    linVars = getLinVarsSAIRD(minVars, pop, A, I, R, D, lamda, w)
-    minCost = errorSAIRD(minVars, paramArg, pop, A, I, R, D, lamda, w) #the custom error function for SIRD
+    linVars = getLinVars(A, I, R, D, minVars[0], pop, minVars[1:3])
+    minCost = errorSAIRD(minVars, paramArg, pop, A, I, R, D) #the custom error function for SIRD
     
     currVars = minVars.copy() #deep copy
     currCost = minCost
@@ -192,8 +206,8 @@ def gridNonLinVars(constraints, varResols, pop, A, I, R, D, lamda, w): #solve fo
     #this could be achieved by using many for loops, but this is a more generalized appraoch
     while(continueLoop):
     
-        linVars = getLinVars(currVars, pop, A, I, R, D, lamda, w)
-        currCost = errorFunc(currVars, paramArg, pop, A, I, R, D, lamda, w)
+        linVars = getLinVars(A, I, R, D, currVars[0], pop, currVars[1:3])
+        currCost = errorFunc(currVars, paramArg, pop, A, I, R, D)
         if(currCost < minCost):
             minCost = currCost
             minVars = currVars.copy()
@@ -211,11 +225,11 @@ def gridNonLinVars(constraints, varResols, pop, A, I, R, D, lamda, w): #solve fo
                 currVars[varIndex] = currVars[varIndex] + varSteps[varIndex] #iterate var        
         varIndex = 0 
        
-    linVars = getLinVars(minVars, pop, A, I, R, D, lamda, w) #set lin vars according to the min nonlin vars
+    linVars = getLinVars(A, I, R, D, minVars[0], pop, minVars[1:3]) #set lin vars according to the min nonlin vars
     return minVars, linVars #return vars and linVars
 
-def solveAllVars(nonLinConstraints, nonLinResol, pop, A, I, R, D, lamda, w):
-    nonLinVars, linVars = gridNonLinVars(nonLinConstraints, nonLinResol, pop, A, I, R, D, lamda, w)
+def solveAllVars(nonLinConstraints, nonLinResol, pop, A, I, R, D):
+    nonLinVars, linVars = gridNonLinVars(nonLinConstraints, nonLinResol, pop, A, I, R, D)
 
     print("Solution: ")
     print("q:  ", nonLinVars[0])
@@ -226,21 +240,19 @@ def solveAllVars(nonLinConstraints, nonLinResol, pop, A, I, R, D, lamda, w):
     print("k : ", linVars[2])
     print("g:  ", linVars[3])
     print("nu: ", linVars[4])
-    print("cost: ", errorFunc(nonLinVars, linVars, pop, A, I, R, D, lamda, w))
+    print("cost: ", errorFunc(nonLinVars, linVars, pop, A, I, R, D))
     print() #spacer
 
     return nonLinVars, linVars
 
 #------------------------------------------------------------------
 
-def calculateBeta(nonLinVars, linVars, pop, I): #how to calculate beta as function of time
-    
-    q = nonLinVars[0]
+def calculateBeta(betaNonLin, linVars, q,pop, I): #how to calculate beta as function of time
     
     b0 = linVars[0]
     b1 = linVars[1]
-    b2 = nonLinVars[1]
-    b3 = nonLinVars[2]
+    b2 = betaNonLin[0]
+    b3 = betaNonLin[1]
     
     return b0 + (b1 / (1 + (b2*(I[:-1]/(pop*q)))**b3 ))
 
@@ -344,7 +356,7 @@ def predictFuture(nonLinVars, linVars, A,I,R,D, pop, daysToPredict, graphVals=[T
     fig2, ax2 = plt.subplots(figsize=(18,8))
     #ax2.plot(calculateAverageParams(A,I,R,D, pop, q, graph=False)[:,0], color="red") #time varying beta
     #ax2.plot(betaConstGraph, color="brown") #constant beta
-    ax2.plot(calculateBeta(nonLinVars, linVars, pop, pI), color="orange")
+    ax2.plot(calculateBeta(nonLinVars[1:], linVars, nonLinVars[0], pop, pI), color="orange")
     ax2.set_ylim(0)
 
     
@@ -380,7 +392,7 @@ def predictMatch(nonLinVars, linVars, A,I,R,D, pop, daysToPredict, graphVals=[Tr
     fig2, ax2 = plt.subplots(figsize=(18,8))
     #ax2.plot(calculateAverageParams(A,I,R,D, pop, q, graph=False)[:,0], color="red") #time varying beta
     #ax2.plot(betaConstGraph, color="brown") #constant beta
-    ax2.plot(calculateBeta(nonLinVars, linVars, pop, pI), color="orange")
+    ax2.plot(calculateBeta(nonLinVars[1:], linVars, nonLinVars[0], pop, pI), color="orange")
     ax2.set_ylim(0)
 
 #---------------------------------------------------------
