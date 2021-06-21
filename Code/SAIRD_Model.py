@@ -10,15 +10,79 @@ import SIRD_Model
 
 #--------------------------------------------------------------------------------------------------------
 
+def getLinVars(A, I, R, D, q, pop): 
+    gamma = getGamma(I,R)
+    nu = getNu(I,D)
+    kappa = getKappa(A,I,gamma,nu)
+    beta = getBeta(q,pop,A,I,kappa)
+    
+    return [beta, kappa, gamma, nu]
+
+def getGamma(I, R):
+    y = np.zeros((len(I)-1,1))
+    X = np.zeros((len(I)-1,1))
+    
+    # R(t+1) - R(t) = gamma*I(t)
+    y[:,0] = R[1:] - R[:-1]
+    X[:,0] = I[:-1]
+
+    return np.linalg.lstsq(X, y, rcond = None)[0].flatten()[0] #solve for gamma
+
+def getNu(I, D):
+    y = np.zeros((len(I)-1,1))
+    X = np.zeros((len(I)-1,1))
+    
+    # D(t+1) - D(t) = nu*I(t)
+    y[:,0] = D[1:] - D[:-1]
+    X[:,0] = I[:-1]
+
+    return np.linalg.lstsq(X, y, rcond = None)[0].flatten()[0] #solve for nu
+
+def getKappa(A, I, gamma, nu): #solve for kappa
+    y = np.zeros((len(A)-1,1))
+    X = np.zeros((len(A)-1,1))
+    
+    #dI = kappa*A - gamma*I - nu*I
+    #dI + gamma*I + nu*I = kappa*A
+    y[:,0] = (I[1:] - I[:-1]) + gamma*I[:-1] + nu*I[:-1]
+    X[:,0] = A[:-1]
+    
+    return np.linalg.lstsq(X, y, rcond = None)[0].flatten()[0] #solve for kappa
+
+
+def getBeta(q,pop, A, I, kappa): #solve for b0 and b1 , kappa, gamma, nu should be solved for
+    y = np.zeros((len(I)-1,1))
+    X = np.zeros((len(I)-1,1)) #column for b0, b1
+    
+    #dS = 0, this doesn't need to be modeled
+    #dA = beta * (c0 * I) / (c0 + I) - kappa*A
+    #dA + kappa*A = beta * (c0 * I) / (c0 + I)
+    #c0 = q*pop
+    y[:,0] = (A[1:] - A[:-1]) + kappa*A[:-1]
+    X[:,0] = (q*pop *I[:-1]) / (q*pop + I[:-1]) #beta
+    
+    return np.linalg.lstsq(X, y, rcond = None)[0].flatten()[0] #solve for b0 and b1
+
+
+
+
+
 def calcRecovered(I, D): #where I is total infections, not current infections
     R = np.zeros(len(I))
     R[13:] = I[:-13] + D[13:] #if infected are not dead by 13 days, assume recovery
     return R
 
-def calcAsymptomatic(I, shift=5): #assume any infected were asymptomatic 5 days ago (or whatever shift equals)
+#A_total = I_total (at whatever shift)
+def calcAsymptomatic(I, R, D, shift=5): #assume any infected were asymptomatic 5 days ago (or whatever shift equals)
     A = np.zeros(len(I))
-    A[:-shift] = I[shift:]
-    A[-shift:] = I[-shift] #last shift days can't fairly be approximated, roughly assume they are the same as infected
+    #A[:-shift] = I[shift:]
+    #A[-shift:] = I[-shift] #last shift days can't fairly be approximated, roughly assume they are the same as infected
+    
+    totalI = I+R+D #newI runs from 0 to T-1
+    A[:-shift] = totalI[shift:] #set A on range 0 to T-1 - shift using newI on range shift to T-1
+    A[:-shift] = A[:-shift] - totalI[:-shift] #if not a part of the asymptomatic group, they must be infected/recov/dead
+    for i in range(shift):
+        A[-i-1] = A[-shift-1] #just use last day for very rough approximation
     return A
 
 #linVars = [beta, kappa, gamma, nu]
@@ -70,48 +134,48 @@ def flattenMatrix(y, X): #get the matrices in a 2d format, time dimension is put
 
 #--------------------------------------------------------------------------------------------------------
 
-def errorFunc(q, linVars, pop, A, I, R, D, lamda, w): #the custom error function for SIRD    
+def errorFunc(q, linVars, pop, A, I, R, D): #the custom error function for SIRD    
     y, A = getMatrix(q, pop, A, I, R, D)
     
     totalError = 0
     #see paper for optimization function
     T = len(A)
     for t in range(T):
-        totalError = totalError + (w**(T - t))*(np.linalg.norm((A[t] @ np.asarray(linVars)) - y[t].transpose(), ord=2)**2)
+        totalError = totalError + (np.linalg.norm((A[t] @ np.asarray(linVars)) - y[t].transpose(), ord=2)**2)
     
     #return (1.0/T) * np.linalg.norm((A @ params) - y.transpose(), ord=2)**2  + lamda*np.linalg.norm(params, ord=1)
     totalError = (1.0/T)*totalError #divide by timeframe
-    totalError = totalError + lamda*np.linalg.norm(linVars, ord=1) #regularization error
     return totalError
 
 #
-def getLinVars(q, pop, A, I, R, D, lamda, w): #calculate the linear vars for the SIRD model, b0, gamma, nu  
-    y, X = getMatrix(q, pop, A, I, R, D)
-    nextIterMatrix, sairdMatrix = flattenMatrix(y, X)
-    
-    rowCount = np.shape(y)[1]
-    T = int(len(nextIterMatrix)/rowCount)
-    
-    #construct y and X, see paper for solving the lasso optimization
-    y = np.zeros( (T*rowCount, 1) )
-    X = np.zeros( (T*rowCount, np.shape(sairdMatrix)[1]) )
-    
-    for t in range(T):
-        for i in range(rowCount):
-            y[rowCount*t+i] = nextIterMatrix[rowCount*t+i] * np.sqrt(w**(T - t))
-            X[rowCount*t+i] = sairdMatrix[rowCount*t+i] * np.sqrt(w**(T - t))
-    
-    try: #fit model using lasso or least squares
-        #model = linear_model.Lasso(alpha=lamda, fit_intercept=False, positive=True)
-        #model.fit(X,y)
-        #params = model.coef_
-        params = (np.linalg.lstsq(X,y, rcond=None)[0]).flatten()
-    except: #did not converge, set params to zero
-        params = np.zeros((np.shape(X)[1]))
-        #print("linal didn't converge")
-    
-    #totalError = (1.0/T) * np.linalg.norm((A @ params) - y.transpose(), ord=2)**2  + lamda*np.linalg.norm(params, ord=1)
-    return params
+#def getLinVars(q, pop, A, I, R, D): #calculate the linear vars for the SIRD model, b0, gamma, nu  
+#    y, X = getMatrix(q, pop, A, I, R, D)
+#    nextIterMatrix, sairdMatrix = flattenMatrix(y, X)
+#    
+#    rowCount = np.shape(y)[1]
+#    T = int(len(nextIterMatrix)/rowCount)
+#    
+#    #construct y and X, see paper for solving the lasso optimization
+#    y = np.zeros( (T*rowCount, 1) )
+#    X = np.zeros( (T*rowCount, np.shape(sairdMatrix)[1]) )
+#    
+#    for t in range(T):
+#        for i in range(rowCount):
+#            y[rowCount*t+i] = nextIterMatrix[rowCount*t+i] * np.sqrt(w**(T - t))
+#            X[rowCount*t+i] = sairdMatrix[rowCount*t+i] * np.sqrt(w**(T - t))
+#    
+#    try: #fit model using lasso or least squares
+#        #model = linear_model.Lasso(alpha=lamda, fit_intercept=False, positive=True)
+#        #model.fit(X,y)
+#        #params = model.coef_
+#        params = (np.linalg.lstsq(X,y, rcond=None)[0]).flatten()
+#    except: #did not converge, set params to zero
+#        params = np.zeros((np.shape(X)[1]))
+#        #print("linal didn't converge")
+#    
+#    #totalError = (1.0/T) * np.linalg.norm((A @ params) - y.transpose(), ord=2)**2  + lamda*np.linalg.norm(params, ord=1)
+#    return params
+
 
 #solve for parameters for every t
 def getTimeVars(q, pop, A, I, R, D, graph=False): #calculate the linear vars for the SIRD model, b(t), kappa(t), gamma(t), nu(t)
@@ -250,11 +314,11 @@ def graphData(A,I,R,D, graphVals=[True, True,True,True],q=None, pop=None):
     fig, ax = plt.subplots(figsize=(18,8))
     if(graphVals[0]):
         ax.plot(A, color="orange", label="asymptomatic")
-    if(graphVals[0]):
+    if(graphVals[1]):
         ax.plot(I, color="red", label="infected")
-    if(graphVals[0]):
+    if(graphVals[2]):
         ax.plot(R, color="cyan", label="recovered")
-    if(graphVals[0]):
+    if(graphVals[3]):
         ax.plot(D, color="black", label="dead")
     if((q!=None) and (pop!=None)):
         ax.plot((q*pop - A - I - R - D), color="blue", label="susceptible")
