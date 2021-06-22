@@ -204,7 +204,7 @@ def calculateFuture(nonLinVars, linVars, I,R,D, pop, daysToPredict):
     S = q*pop - I - R - D
     
     #set up matrices and starting info
-    dt, X = getMatrix(nonLinVars, pop, A,I,R,D)
+    dt, X = getMatrix(nonLinVars, pop, I,R,D)
 
     sairdPredict = np.zeros((len(X) + daysToPredict, np.shape(X)[1], np.shape(X)[2]))
     dtPredict = np.zeros((len(dt) + daysToPredict, np.shape(dt)[1], 1))
@@ -247,9 +247,9 @@ def calculateFuture(nonLinVars, linVars, I,R,D, pop, daysToPredict):
         
         #find next SIRD, based on dtPredict[t] (which is S(t+1) - S(t)) to predict S(t) (and so on)
         SP[t+1] = SP[t] + dtPredict[t,0,0]
-        IP[t+1] = IP[t] + dtPredict[t,2,0]
-        RP[t+1] = RP[t] + dtPredict[t,3,0]
-        DP[t+1] = DP[t] + dtPredict[t,4,0]
+        IP[t+1] = IP[t] + dtPredict[t,1,0]
+        RP[t+1] = RP[t] + dtPredict[t,2,0]
+        DP[t+1] = DP[t] + dtPredict[t,3,0]
     
     return SP, IP, RP, DP
 

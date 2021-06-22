@@ -13,7 +13,7 @@ import SIRD_Model
 def getLinVars(I, R, D, q, pop, betaNonLin): 
     gamma = getGamma(I,R)
     nu = getNu(I,D)
-    beta = getBeta(q,pop,I,betaNonLin)
+    beta = getBeta(q,pop,I,betaNonLin, gamma, nu)
     
     return [beta[0], beta[1], gamma, nu]
 
@@ -235,7 +235,7 @@ def calculateFuture(nonLinVars, linVars, I,R,D, pop, daysToPredict):
     S = q*pop - I - R - D
     
     #set up matrices and starting info
-    dt, X = getMatrix(nonLinVars, pop, A,I,R,D)
+    dt, X = getMatrix(nonLinVars, pop, I,R,D)
 
     sairdPredict = np.zeros((len(X) + daysToPredict, np.shape(X)[1], np.shape(X)[2]))
     dtPredict = np.zeros((len(dt) + daysToPredict, np.shape(dt)[1], 1))
@@ -278,9 +278,9 @@ def calculateFuture(nonLinVars, linVars, I,R,D, pop, daysToPredict):
         
         #find next SIRD, based on dtPredict[t] (which is S(t+1) - S(t)) to predict S(t) (and so on)
         SP[t+1] = SP[t] + dtPredict[t,0,0]
-        IP[t+1] = IP[t] + dtPredict[t,2,0]
-        RP[t+1] = RP[t] + dtPredict[t,3,0]
-        DP[t+1] = DP[t] + dtPredict[t,4,0]
+        IP[t+1] = IP[t] + dtPredict[t,1,0]
+        RP[t+1] = RP[t] + dtPredict[t,2,0]
+        DP[t+1] = DP[t] + dtPredict[t,3,0]
     
     return SP, IP, RP, DP
 
@@ -348,7 +348,7 @@ def predictMatch(nonLinVars, linVars, I,R,D, pop, daysToPredict, graphVals=[True
     fig2, ax2 = plt.subplots(figsize=(18,8))
     #ax2.plot(calculateAverageParams(A,I,R,D, pop, q, graph=False)[:,0], color="red") #time varying beta
     #ax2.plot(betaConstGraph, color="brown") #constant beta
-    ax2.plot(calculateBeta(nonLinVars[1:], linVars, nonLinVars[0], pop, pI), color="orange")
+    ax2.plot(calculateBeta(nonLinVars[1:], linVars, nonLinVars[0], pop, pI), color="red")
     ax2.set_ylim(0)
 
 #---------------------------------------------------------
