@@ -197,13 +197,14 @@ def getTimeVars(q, pop, A, I, R, D, graph=False): #calculate the linear vars for
 #------------------------------------------------------------------
 
 #predict the next some days using constant parameters, q and params will be calculated if not set, uses smoothing method  from paper
-def calculateFuture(linVars, A,I,R,D, q, pop, daysToPredict):
+def calculateFuture(nonLinVars, linVars, I,R,D, pop, daysToPredict):
     
     #A=sirdmatrix, and dt=nextIterMatrix, if we know S(t) we should be able to predict S(t+1)
-    S = q*pop - A - I - R - D
+    q = nonLinVars[0]
+    S = q*pop - I - R - D
     
     #set up matrices and starting info
-    dt, X = getMatrix(q, pop, A,I,R,D)
+    dt, X = getMatrix(nonLinVars, pop, A,I,R,D)
 
     sairdPredict = np.zeros((len(X) + daysToPredict, np.shape(X)[1], np.shape(X)[2]))
     dtPredict = np.zeros((len(dt) + daysToPredict, np.shape(dt)[1], 1))
@@ -212,66 +213,60 @@ def calculateFuture(linVars, A,I,R,D, q, pop, daysToPredict):
     dtPredict[0:len(dt)] = dt
 
     SP = np.zeros(len(S) + daysToPredict)
-    AP = np.zeros(len(A) + daysToPredict)
     IP = np.zeros(len(I) + daysToPredict)
     RP = np.zeros(len(R) + daysToPredict)
     DP = np.zeros(len(D) + daysToPredict)
 
-    SP[0:len(S)] = S
-    AP[0:len(A)] = A    
+    SP[0:len(S)] = S 
     IP[0:len(I)] = I
     RP[0:len(R)] = R
     DP[0:len(D)] = D
 
-    T = len(A) - 1
+    T = len(I) - 1
+    c0 = q*pop
     for t in range(T, T + daysToPredict): #go from last element in known list to end of prediction, see paper for method
         #populate the 5x5 matrix with parameters
         #susceptible row, dS = 0
         sairdPredict[:,0,0] = 0 #assume constant susceptiples, no change
 
-        #asymptomatic row, dA = B(t)*(c0*I / c0 + I) - kA, B(t) = b0 + b1/(1+b2*I^b3)
-        sairdPredict[:,1,0] = (q*pop * IP[t]) / (q*pop + IP[t]) #b0
-        sairdPredict[:,1,1] = -AP[t] #kappa
-
-        #infected row
-        sairdPredict[:,2,1] = AP[t] #kappa
-        sairdPredict[:,2,2] = -IP[t] #gamma
-        sairdPredict[:,2,3] = -IP[t] #nu
+        #infected row, dA = B(t)*(c0*I / c0 + I) - yI - vI, B(t) = b0 + b1/(1+b2*I^b3)
+        sairdPredict[:,1,0] = (c0 * IP[t]) / (c0 + IP[t]) #b0
+        sairdPredict[:,1,1] = (c0 * IP[t]) / (c0 + IP[t]) * (1 / (1 + (nonLinVars[1]*(IP[t]/(q*pop)))**nonLinVars[-1])) #b1
+        sairdPredict[:,1,2] = -IP[t] #gamma
+        sairdPredict[:,1,3] = -IP[t] #nu
 
         #recovered row
-        sairdPredict[:,3,2] = IP[t] #gamma
+        sairdPredict[:,2,2] = IP[t] #gamma
 
-        sairdPredict[:,4,3] = IP[t] #nu
+        sairdPredict[:,3,3] = IP[t] #nu
 
         #predict next iter matrix
         dtPredict[t,:,0] = (sairdPredict[t] @ linVars)
         
+        #print((c0 * IP[t]) / (c0 + IP[t])*linVars[0] + linVars[1]*(c0 * IP[t]) / (c0 + IP[t]) * (1 / (1 + (nonLinVars[1]*IP[t])**nonLinVars[-1])) )
+        
         #find next SIRD, based on dtPredict[t] (which is S(t+1) - S(t)) to predict S(t) (and so on)
         SP[t+1] = SP[t] + dtPredict[t,0,0]
-        AP[t+1] = AP[t] + dtPredict[t,1,0]
         IP[t+1] = IP[t] + dtPredict[t,2,0]
         RP[t+1] = RP[t] + dtPredict[t,3,0]
         DP[t+1] = DP[t] + dtPredict[t,4,0]
     
-    return SP, AP, IP, RP, DP
+    return SP, IP, RP, DP
 
 
 
 #predict future days that are not known
-def predictFuture(linVars, A,I,R,D, q, pop, daysToPredict, graphVals=[True,True,True,True]):
-    pS, pA, pI, pR, pD = calculateFuture(linVars, A,I,R,D, q, pop, daysToPredict)
+def predictFuture(nonLinVars, linVars, I,R,D, pop, daysToPredict, graphVals=[True,True,True,True]):
+    pS, pI, pR, pD = calculateFuture(nonLinVars, linVars, I,R,D, pop, daysToPredict)
     
     #q = nonLinVars[0]
     #S = nonLinVars[0]*pop - A - I - R - D
     
     #plot actual and predicted values
     fig, ax = plt.subplots(figsize=(18,8))
-    #if(graphVals[0]):
-    #    ax.plot(S, color='blue', label='suscpetible')
-    #    ax.plot(pS, color='blue', label='suscpetible', linestyle='dashed')
     if(graphVals[0]):
-        ax.plot(A, color='blue', label='asyptomatic')
-        ax.plot(pA, color='blue', label='asyptomatic', linestyle='dashed')
+        ax.plot(S, color='blue', label='suscpetible')
+        ax.plot(pS, color='blue', label='suscpetible', linestyle='dashed')
     if(graphVals[1]):
         ax.plot(I, color='orange', label='infected')
         ax.plot(pI, color='orange', label='infected', linestyle='dashed')
@@ -281,22 +276,30 @@ def predictFuture(linVars, A,I,R,D, q, pop, daysToPredict, graphVals=[True,True,
     if(graphVals[3]):
         ax.plot(D, color='black', label='dead')
         ax.plot(pD, color='black', label='dead', linestyle='dashed')
+      
+    #plot beta over time
+    #betaConst = SIRD_Model.calculateConstantParams(infect, recov, dead, pop, q)[0]
+    #betaConstGraph = np.ones((len(infect)-1))*betaConst #fill array with const value
+    
+    fig2, ax2 = plt.subplots(figsize=(18,8))
+    #ax2.plot(calculateAverageParams(A,I,R,D, pop, q, graph=False)[:,0], color="red") #time varying beta
+    #ax2.plot(betaConstGraph, color="brown") #constant beta
+    ax2.plot(calculateBeta(nonLinVars[1:], linVars, nonLinVars[0], pop, pI), color="orange")
+    ax2.set_ylim(0)
 
     
 #predict days that are known for testing purposes, predicts the end portion of the given data
-def predictMatch(linVars, A,I,R,D, q, pop, daysToPredict, graphVals=[True,True,True,True]):
-    pS, pA, pI, pR, pD = calculateFuture(linVars, A[0:-daysToPredict], I[0:-daysToPredict], R[0:-daysToPredict], D[0:-daysToPredict], q,pop, daysToPredict)
+def predictMatch(nonLinVars, linVars, I,R,D, pop, daysToPredict, graphVals=[True,True,True,True]):
+    pS, pI, pR, pD = calculateFuture(nonLinVars, linVars, I[0:-daysToPredict], R[0:-daysToPredict], D[0:-daysToPredict], pop, daysToPredict)
     
-    #S = q*pop - A - I - R - D
+    q = nonLinVars[0]
+    S = nonLinVars[0]*pop - I - R - D
     
     #plot actual and predicted values
     fig, ax = plt.subplots(figsize=(18,8))
-    #if(graphVals[0]):
-    #    ax.plot(S, color='blue', label='suscpetible')
-    #    ax.plot(pS, color='blue', label='suscpetible', linestyle='dashed')
     if(graphVals[0]):
-        ax.plot(A, color='blue', label='asyptomatic')
-        ax.plot(pA, color='blue', label='asyptomatic', linestyle='dashed')
+        ax.plot(S, color='blue', label='suscpetible')
+        ax.plot(pS, color='blue', label='suscpetible', linestyle='dashed')
     if(graphVals[1]):
         ax.plot(I, color='orange', label='infected')
         ax.plot(pI, color='orange', label='infected', linestyle='dashed')
@@ -306,14 +309,25 @@ def predictMatch(linVars, A,I,R,D, q, pop, daysToPredict, graphVals=[True,True,T
     if(graphVals[3]):
         ax.plot(D, color='black', label='dead')
         ax.plot(pD, color='black', label='dead', linestyle='dashed')
+      
+    #plot beta over time
+    #betaConst = SIRD_Model.calculateConstantParams(infect, recov, dead, pop, q)[0]
+    #betaConstGraph = np.ones((len(infect)-1))*betaConst #fill array with const value
+    
+    fig2, ax2 = plt.subplots(figsize=(18,8))
+    #ax2.plot(calculateAverageParams(A,I,R,D, pop, q, graph=False)[:,0], color="red") #time varying beta
+    #ax2.plot(betaConstGraph, color="brown") #constant beta
+    ax2.plot(calculateBeta(nonLinVars[1:], linVars, nonLinVars[0], pop, pI), color="orange")
+    ax2.set_ylim(0)
+
 
 #---------------------------------------------------------
                 
 #q and pop are only needed if graphing S
-def graphData(A,I,R,D, graphVals=[True, True,True,True],q=None, pop=None):
+def graphData(I,R,D, graphVals=[True,True,True,True],q=None, pop=None):
     fig, ax = plt.subplots(figsize=(18,8))
-    if(graphVals[0]):
-        ax.plot(A, color="orange", label="asymptomatic")
+    #if(graphVals[0]):
+    #    ax.plot(A, color="orange", label="asymptomatic")
     if(graphVals[1]):
         ax.plot(I, color="red", label="infected")
     if(graphVals[2]):
