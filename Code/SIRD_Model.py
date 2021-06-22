@@ -34,6 +34,22 @@ def loadData(filename):
 
 #--------------------------------------------------------------------------------------------------------
 
+#solve for parameters for every t
+def getTimeVars(q, pop, I, R, D, graph=False): #calculate the linear vars for the SIRD model, b(t), kappa(t), gamma(t), nu(t)
+    y, X = getMatrix(q, pop, I, R, D)
+    
+    varMatrix = np.zeros((np.shape(X)[2], len(X)))
+    for t in range(len(X)):
+        varMatrix[:,t] = (np.linalg.lstsq(X[t],y[t], rcond=None)[0]).transpose()
+    
+    if(graph): #plot the vars over time
+        fig2, ax2 = plt.subplots(3, figsize=(18,8))
+        ax2[0].plot(varMatrix[0], color="red")
+        ax2[1].plot(varMatrix[1], color="cyan")
+        ax2[2].plot(varMatrix[2], color="black")
+
+    return varMatrix
+
 def calculateAverageParams(infected, recovered, dead, pop, q, graph=True, graphVals=[True,True,True,True]):
     #since S+I+R+D always equals the same constant S(t) can now be determined
     suscept = q*pop - infected - recovered - dead
@@ -140,6 +156,51 @@ def getBasisFunc(suscept, infect, recov, dead, graph=True):
 
 #--------------------------------------------------------------------------------------------------------
 
+def getMatrix(q, pop, I, R, D):    
+    
+    S = q*pop - I - R - D
+    
+    sirdMatrix = np.zeros((len(S) - 1, 4, 3))
+    nextIterMatrix = np.zeros((len(S) - 1, 4, 1)) #the S(t+1), I(t+1), ... matrix
+    
+    #susceptible row, dS = 0
+    sirdMatrix[:,0,0] = -(S[:-1] * I[:-1]) / (S[:-1] + I[:-1]) #b
+
+    #infected row
+    sirdMatrix[:,1,0] = (S[:-1] * I[:-1]) / (S[:-1] + I[:-1]) #b0
+    sirdMatrix[:,1,1] = -I[:-1] #gamma
+    sirdMatrix[:,1,2] = -I[:-1] #nu
+
+    #recovered row
+    sirdMatrix[:,2,1] = I[:-1] #gamma
+
+    #dead row
+    sirdMatrix[:,3,2] = I[:-1] #nu
+
+    #populate the S(t+1), I(t+1), ... matrix
+    nextIterMatrix[:,0,0] = 0 #no change
+    nextIterMatrix[:,1,0] = I[1:] - I[:-1]
+    nextIterMatrix[:,2,0] = R[1:] - R[:-1]
+    nextIterMatrix[:,3,0] = D[1:] - D[:-1]
+
+    return nextIterMatrix, sirdMatrix
+
+def flattenMatrix(y, X): #get the matrices in a 2d format, time dimension is put into the first
+    T = len(y)
+    rowCount = np.shape(y)[1]
+    newY = np.zeros((T*rowCount, 1))
+    newX = np.zeros((T*rowCount, np.shape(X)[2]))
+    
+    #map to flat matrix
+    for t in range(T):
+        for i in range(rowCount):
+            newY[t*rowCount + i] = y[t, i]
+            newX[t*rowCount + i] = X[t, i]
+            
+    return newY, newX
+
+
+#deprecated version of get matrix functions see above versions
 def getSIRDMatrices(suscept, infect, recov, dead):
     sirdMatrix = np.zeros((len(recov) - 1, 4, 3))
     nextIterMatrix = np.zeros((len(recov) - 1, 4, 1)) #the S(t+1), I(t+1), ... matrix
@@ -703,3 +764,60 @@ def predictConstMatch(infect, recov, dead, pop, daysToPredict, params, q, graphV
     if(graphVals[3]):
         ax.plot(dead, color='black', label='dead')
         ax.plot(pD, color='black', label='dead', linestyle='dashed')
+        
+        
+#-------------------------------------------------------------------------------------------
+
+def getGamma(I, R):
+    y = np.zeros((len(I)-1,1))
+    X = np.zeros((len(I)-1,1))
+    
+    # R(t+1) - R(t) = gamma*I(t)
+    y[:,0] = R[1:] - R[:-1]
+    X[:,0] = I[:-1]
+
+    return np.linalg.lstsq(X, y, rcond = None)[0].flatten()[0] #solve for gamma
+
+def getGammaTime(I,R):
+    y = R[1:] - R[:-1]
+    x = I[:-1]
+    #since y = x*gamma
+    return y/x
+
+def getNu(I, D):
+    y = np.zeros((len(I)-1,1))
+    X = np.zeros((len(I)-1,1))
+    
+    # D(t+1) - D(t) = nu*I(t)
+    y[:,0] = D[1:] - D[:-1]
+    X[:,0] = I[:-1]
+
+    return np.linalg.lstsq(X, y, rcond = None)[0].flatten()[0] #solve for nu
+
+def getNuTime(I,D):
+    y = D[1:] - D[:-1]
+    x = I[:-1]
+    #since y = x*nu
+    return y/x
+
+#solve for parameters for every t
+def solveTimeVars(q, pop, I, R, D, graph=False): #calculate the linear vars for the SIRD model, b(t), kappa(t), gamma(t), nu(t)
+    
+    S = q*pop - I - R - D
+    
+    gamma = getGammaTime(I,R)
+    nu = getNuTime(I,D)
+    
+    #where y = x*beta
+    y = (I[1:] - I[:-1]) + gamma*I[:-1] + nu*I[:-1]
+    x = (S[:-1] * I[:-1]) / (S[:-1] + I[:-1])
+    
+    beta = y/x
+    
+    if(graph): #plot the vars over time
+        fig, ax = plt.subplots(3, 1, figsize=(18,8))
+        ax[0].plot(beta, color="red")
+        ax[1].plot(gamma, color="green")
+        ax[2].plot(nu, color="black")
+
+    return [beta,gamma,nu]
