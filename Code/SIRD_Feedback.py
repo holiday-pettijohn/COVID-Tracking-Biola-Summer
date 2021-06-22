@@ -237,10 +237,10 @@ def calculateFuture(nonLinVars, linVars, I,R,D, pop, daysToPredict):
     #set up matrices and starting info
     dt, X = getMatrix(nonLinVars, pop, I,R,D)
 
-    sairdPredict = np.zeros((len(X) + daysToPredict, np.shape(X)[1], np.shape(X)[2]))
+    xPredict = np.zeros((len(X) + daysToPredict, np.shape(X)[1], np.shape(X)[2]))
     dtPredict = np.zeros((len(dt) + daysToPredict, np.shape(dt)[1], 1))
 
-    sairdPredict[0:len(X)] = X
+    xPredict[0:len(X)] = X
     dtPredict[0:len(dt)] = dt
 
     SP = np.zeros(len(S) + daysToPredict)
@@ -258,21 +258,21 @@ def calculateFuture(nonLinVars, linVars, I,R,D, pop, daysToPredict):
     for t in range(T, T + daysToPredict): #go from last element in known list to end of prediction, see paper for method
         #populate the 5x5 matrix with parameters
         #susceptible row, dS = 0
-        sairdPredict[:,0,0] = 0 #assume constant susceptiples, no change
+        xPredict[t,0,0] = 0 #assume constant susceptiples, no change
 
         #infected row, dA = B(t)*(c0*I / c0 + I) - yI - vI, B(t) = b0 + b1/(1+b2*I^b3)
-        sairdPredict[:,1,0] = (c0 * IP[t]) / (c0 + IP[t]) #b0
-        sairdPredict[:,1,1] = (c0 * IP[t]) / (c0 + IP[t]) * (1 / (1 + (nonLinVars[1]*(IP[t]/(q*pop)))**nonLinVars[-1])) #b1
-        sairdPredict[:,1,2] = -IP[t] #gamma
-        sairdPredict[:,1,3] = -IP[t] #nu
+        xPredict[t,1,0] = (c0 * IP[t]) / (c0 + IP[t]) #b0
+        xPredict[t,1,1] = (c0 * IP[t]) / (c0 + IP[t]) * (1 / (1 + (nonLinVars[1]*(IP[t]/(q*pop)))**nonLinVars[-1])) #b1
+        xPredict[t,1,2] = -IP[t] #gamma
+        xPredict[t,1,3] = -IP[t] #nu
 
         #recovered row
-        sairdPredict[:,2,2] = IP[t] #gamma
+        xPredict[t,2,2] = IP[t] #gamma
 
-        sairdPredict[:,3,3] = IP[t] #nu
+        xPredict[t,3,3] = IP[t] #nu
 
         #predict next iter matrix
-        dtPredict[t,:,0] = (sairdPredict[t] @ linVars)
+        dtPredict[t,:,0] = (xPredict[t] @ linVars)
         
         #print((c0 * IP[t]) / (c0 + IP[t])*linVars[0] + linVars[1]*(c0 * IP[t]) / (c0 + IP[t]) * (1 / (1 + (nonLinVars[1]*IP[t])**nonLinVars[-1])) )
         
