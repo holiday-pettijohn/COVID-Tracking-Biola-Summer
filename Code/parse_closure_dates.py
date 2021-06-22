@@ -15,7 +15,7 @@ for line in data[1:]:
   for i in range(1,len(line)):
     if line[i] == "N/A":
       continue
-    contents.append([line[i].strip(), header[i], "Incidence {}".format(header[i]),"https://jamanetwork.com/journals/jama/fullarticle/2769034?utm_campaign=articlePDF&utm_medium=articlePDFlink&utm_source=articlePDF&utm_content=jama.2020.14348"])
+    contents.append([line[i].strip()+"20", header[i], "Incidence {}".format(header[i]),"https://jamanetwork.com/journals/jama/fullarticle/2769034?utm_campaign=articlePDF&utm_medium=articlePDFlink&utm_source=articlePDF&utm_content=jama.2020.14348"])
   swriter.writerow(["Dates", "Opening/Closure", "Notes", "Link"])
   swriter.writerows(contents)
   sfile.close()
