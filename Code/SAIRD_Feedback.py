@@ -10,6 +10,10 @@ import SIRD_Model
 
 #--------------------------------------------------------------------------------------------------------
 
+#variables used for the entire file
+regularizer = 0
+weightDecay = 1
+
 def getLinVars(A, I, R, D, q, pop, betaNonLin): 
     gamma = getGamma(I,R)
     nu = getNu(I,D)
@@ -77,11 +81,13 @@ def calcAsymptomatic(I, R, D, shift=5): #assume any infected were asymptomatic 5
     #A[:-shift] = I[shift:]
     #A[-shift:] = I[-shift] #last shift days can't fairly be approximated, roughly assume they are the same as infected
     
-    totalI = I+R+D #newI runs from 0 to T-1
-    A[:-shift] = totalI[shift:] #set A on range 0 to T-1 - shift using newI on range shift to T-1
-    A[:-shift] = A[:-shift] - totalI[:-shift] #if not a part of the asymptomatic group, they must be infected/recov/dead
-    for i in range(shift):
-        A[-i-1] = A[-shift-1] #just use last day for very rough approximation
+    #totalI = I+R+D #newI runs from 0 to T-1
+    #A[:-shift] = totalI[shift:] #set A on range 0 to T-1 - shift using newI on range shift to T-1
+    #A[:-shift] = A[:-shift] - totalI[:-shift] #if not a part of the asymptomatic group, they must be infected/recov/dead
+    #for i in range(shift):
+    #
+    
+    A[-i-1] = A[-shift-1] #just use last day for very rough approximation
     return A
 
 #for all functions assume nonLinVars = [q,b2,b3], q may or may not be used
