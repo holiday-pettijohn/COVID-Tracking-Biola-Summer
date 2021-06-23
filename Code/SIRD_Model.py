@@ -355,7 +355,7 @@ def calculateFuture(infect, recov, dead, pop, daysToPredict, params=None, q=None
     dt, A = getSIRDMatrices(suscept, infect, recov, dead)
 
     if(params == None): #calculate params if not set, average from final 10 percent of days
-        params = calculateAverageParams(infect, recov, dead, pop, q, graph=False)
+        params = solveTimeVars(q,pop,infect, recov, dead, graph=False)
 
     sirdPredict = np.zeros((len(A) + daysToPredict, 4, 3))
     dtPredict = np.zeros((len(dt) + daysToPredict, 4, 1))
@@ -819,5 +819,7 @@ def solveTimeVars(q, pop, I, R, D, graph=False): #calculate the linear vars for 
         ax[0].plot(beta, color="red")
         ax[1].plot(gamma, color="green")
         ax[2].plot(nu, color="black")
+    temp = np.array([beta,gamma,nu])
+    temp = temp.T
 
-    return [beta,gamma,nu]
+    return temp
