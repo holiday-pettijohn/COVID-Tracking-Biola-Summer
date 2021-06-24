@@ -3,7 +3,8 @@ import matplotlib.pyplot as plt
 
 #this model is for the constant parameter version of SIRD
 # S' = -beta * (SI/S+I)
-# I' = beta * (SI/S+I) - gamma*I - nu*I
+# A' = beta * (SI/S+I) - kappa*A
+# I' = kappa*A - gamma*I - nu*I
 # R' = gamma*I
 # D' = nu*I
 
@@ -13,31 +14,49 @@ regularizer = 0
 weightDecay = 1
 #--------------------------------------------------------------------------
 
+def getAsympt(I, shift=10): #assume the current infected population was the asymptomatic population shifted days ago
+    A = np.zeros(len(I))
+    A[:-shift] = I[shift:]
+    
+    #no propre way to define A for shift last days, just say equal to I
+    for t in range(1,shift+1):
+        A[-t] = I[-t]
+    
+    return A
+
+def getSuscept(A, I, R, D, q, pop):
+    return (q*pop) - A - I - R - D #S + I + R + D = q*pop
+
 #--------------------------------------------------------------------------
 #create the basic model matrices
-def getMatrix(S, I, R, D):    
-    sirdMatrix = np.zeros((len(S) - 1, 4, 3))
-    nextIterMatrix = np.zeros((len(S) - 1, 4, 1)) #the S(t+1), I(t+1), ... matrix
+def getMatrix(S, A, I, R, D):    
+    sirdMatrix = np.zeros((len(S) - 1, 5, 4))
+    nextIterMatrix = np.zeros((len(S) - 1, 5, 1)) #the S(t+1), I(t+1), ... matrix
     
     #susceptible row, dS = 0
     sirdMatrix[:,0,0] = -(S[:-1] * I[:-1]) / (S[:-1] + I[:-1]) #beta
 
-    #infected row
+    #asymptomatic row
     sirdMatrix[:,1,0] = (S[:-1] * I[:-1]) / (S[:-1] + I[:-1]) #beta
-    sirdMatrix[:,1,1] = -I[:-1] #gamma
-    sirdMatrix[:,1,2] = -I[:-1] #nu
+    sirdMatrix[:,1,1] = -A[:-1] #kappa
+    
+    #infected row
+    sirdMatrix[:,2,1] = A[:-1] #kappa
+    sirdMatrix[:,2,2] = -I[:-1] #gamma
+    sirdMatrix[:,2,3] = -I[:-1] #nu
 
     #recovered row
-    sirdMatrix[:,2,1] = I[:-1] #gamma
+    sirdMatrix[:,3,2] = I[:-1] #gamma
 
     #dead row
-    sirdMatrix[:,3,2] = I[:-1] #nu
+    sirdMatrix[:,4,3] = I[:-1] #nu
 
     #populate the S(t+1), I(t+1), ... matrix
     nextIterMatrix[:,0,0] = S[1:] - S[:-1]
-    nextIterMatrix[:,1,0] = I[1:] - I[:-1]
-    nextIterMatrix[:,2,0] = R[1:] - R[:-1]
-    nextIterMatrix[:,3,0] = D[1:] - D[:-1]
+    nextIterMatrix[:,1,0] = A[1:] - A[:-1]
+    nextIterMatrix[:,2,0] = I[1:] - I[:-1]
+    nextIterMatrix[:,3,0] = R[1:] - R[:-1]
+    nextIterMatrix[:,4,0] = D[1:] - D[:-1]
 
     return nextIterMatrix, sirdMatrix
 #--------------------------------------------------------------------------
@@ -45,12 +64,13 @@ def getMatrix(S, I, R, D):
 
 #--------------------------------------------------------------------------
 #solve for parameters using weight decay and solving row by row
-def getLinVars(S, I, R, D):
+def getLinVars(S, A, I, R, D):
     nu = getNu(I,D)
     gamma = getGamma(I,R)
-    beta = getBeta(S,I,gamma,nu)
+    kappa = getKappa(A,I,gamma,nu)
+    beta = getBeta(S,A,I,kappa)
     
-    return [beta, gamma, nu]
+    return [beta, kappa, gamma, nu]
 
 
 def getGamma(I, R):
@@ -73,16 +93,26 @@ def getNu(I, D):
 
     return np.linalg.lstsq(x, y, rcond = None)[0].flatten()[0] #solve for nu
 
-def getBeta(S, I, gamma, nu):
+def getKappa(A,I, gamma, nu):
+    #A' = A*kapp - I*gmma - I*nu
+    y = np.zeros((len(I)-1,1))
+    x = np.zeros((len(I)-1,1))
+    
+    y[:,0] = A[1:] - A[:-1] + gamma*I[:-1] + nu*I[:-1]
+    x[:,0] = A[:-1]
+    
+    return np.linalg.lstsq(x, y, rcond = None)[0].flatten()[0] #solve for kappa
+    
+def getBeta(S, A, I, kappa):
     y = np.zeros((2*(len(I)-1),1)) # 2 times length since every other row is for S' and every other is I'
     x = np.zeros((2*(len(I)-1),1))
     
     #betaNonLin = [b2,b3]
     #dS = -beta * (SI/S+I)
-    #dI = beta * (SI/S+I)\
+    #dI = beta * (SI/S+I) - kappa*A
     
     y[::2,  0] = (S[1:] - S[:-1]) #::2 is for skipping every other row (starts at 0)
-    y[1::2, 0] = (I[1:] - I[:-1]) + gamma*I[:-1] + nu*I[:-1]
+    y[1::2, 0] = (I[1:] - I[:-1]) + kappa*A[:-1]
     
     x[::2,  0] = -(S[:-1]*I[:-1]) / (S[:-1] + I[:-1])
     x[1::2, 0] = (S[:-1]*I[:-1]) / (S[:-1] + I[:-1]) 
@@ -100,8 +130,8 @@ def getBeta(S, I, gamma, nu):
 
 #--------------------------------------------------------------------------
 #find the error of the current parameters
-def getError(S, I, R, D, linVars, regError=True): #the custom error function for SIRD    
-    y, x = getMatrix(S, I, R, D)
+def getError(S, A, I, R, D, linVars, regError=True): #the custom error function for SIRD    
+    y, x = getMatrix(S, A, I, R, D)
     
     totalError = 0
     #see paper for optimization function
@@ -125,7 +155,7 @@ def getError(S, I, R, D, linVars, regError=True): #the custom error function for
 
 #--------------------------------------------------------------------------
 #solve for q by gridding
-def getQ(I, R, D, pop, qMax = 1, resol=100, graph=False):
+def getQ(A, I, R, D, pop, qMax = 1, resol=100, graph=False):
     qMin = max((I + R + D)/pop)
     
     qList = np.zeros(resol)
@@ -134,15 +164,16 @@ def getQ(I, R, D, pop, qMax = 1, resol=100, graph=False):
         
     errorList = [] #find the error for each calculated value of q
     for q in qList: #check eeach value of q
-        S = q*pop - I - R - D
-        #normalize so that S+I+R+D = 1, this allows errors to be consistant between different q values
+        S = q*pop - A - I - R - D
+        #normalize so that S+A+I+R+D = 1, this allows errors to be consistant between different q values
         S = S/(q*pop)
+        A = A/(q*pop)
         I = I/(q*pop)
         R = R/(q*pop)
         D = D/(q*pop)      
         
-        linVars = getLinVars(S,I,R,D)
-        errorList.append(getError(S,I,R,D, linVars, regError=False)) #add errror, don't do a regularization error
+        linVars = getLinVars(S,A,I,R,D)
+        errorList.append(getError(S,A,I,R,D, linVars, regError=False)) #add errror, don't do a regularization error
     
     bestQIndex = 0
     for i in range(resol):
@@ -158,16 +189,18 @@ def getQ(I, R, D, pop, qMax = 1, resol=100, graph=False):
 #--------------------------------------------------------------------------    
 
 #--------------------------------------------------------------------------  
-def displayData(S,I,R,D, graphVals=[False,True,True,True]):
+def displayData(S,A,I,R,D, graphVals=[False,True,True,True,True]):
     
     fig, ax = plt.subplots(figsize=(18,8))
     if(graphVals[0]):
         ax.plot(S, color="purple")
     if(graphVals[1]):
-        ax.plot(I, color="red")
+        ax.plot(A, color="orange")
     if(graphVals[2]):
-        ax.plot(R, color="blue")
+        ax.plot(I, color="red")
     if(graphVals[3]):
+        ax.plot(R, color="blue")
+    if(graphVals[4]):
         ax.plot(D, color="black")
         
     return fig, ax
@@ -182,13 +215,14 @@ def displayData(S,I,R,D, graphVals=[False,True,True,True]):
 #------------------------------------------------------------------
 #prediction functions
 #predict the next some days using constant parameters, q and params will be calculated if not set, uses smoothing method  from paper
-def calculateFuture(S,I,R,D, daysToPredict, params=None):
+def calculateFuture(S,A,I,R,D, daysToPredict, params=None):
     if(params==None):
-        params=getLinVars(S,I,R,D)
+        params=getLinVars(S,A,I,R,D)
+    
     print("Lin Vars:", params)
     
     #set up matrices and starting info
-    dt, X = getMatrix(S,I,R,D)
+    dt, X = getMatrix(S,A,I,R,D)
 
     xPredict = np.zeros((len(X) + daysToPredict, np.shape(X)[1], np.shape(X)[2]))
     dtPredict = np.zeros((len(dt) + daysToPredict, np.shape(dt)[1], 1))
@@ -197,11 +231,13 @@ def calculateFuture(S,I,R,D, daysToPredict, params=None):
     dtPredict[0:len(dt)] = dt
 
     SP = np.zeros(len(S) + daysToPredict)
+    AP = np.zeros(len(A) + daysToPredict)
     IP = np.zeros(len(I) + daysToPredict)
     RP = np.zeros(len(R) + daysToPredict)
     DP = np.zeros(len(D) + daysToPredict)
 
     SP[0:len(S)] = S 
+    AP[0:len(A)] = A
     IP[0:len(I)] = I
     RP[0:len(R)] = R
     DP[0:len(D)] = D
@@ -212,33 +248,38 @@ def calculateFuture(S,I,R,D, daysToPredict, params=None):
         #susceptible row, dS = -(SI/S+I)
         xPredict[t,0,0] = -(SP[t] * IP[t]) / (SP[t] + IP[t])
 
-        #infected row, dA = B*(S*I / S + I)
-        xPredict[t,1,0] = (SP[t] * IP[t]) / (SP[t] + IP[t]) #b0
-        xPredict[t,1,1] = -IP[t] #gamma
-        xPredict[t,1,2] = -IP[t] #nu
+        #asymptomatic row
+        xPredict[t,1,0] = (SP[t] * IP[t]) / (SP[t] + IP[t])
+        xPredict[t,1,1] = -AP[t] #kappa
+        
+        #infected row, dI = kappa*A - I*gamma - nu*I
+        xPredict[t,2,1] = AP[t] #kappa
+        xPredict[t,2,2] = -IP[t] #gamma
+        xPredict[t,2,3] = -IP[t] #nu
 
         #recovered row
-        xPredict[t,2,1] = IP[t] #gamma
+        xPredict[t,3,2] = IP[t] #gamma
 
         #dead row
-        xPredict[t,3,2] = IP[t] #nu
+        xPredict[t,4,3] = IP[t] #nu
 
         #predict next iter matrix
         dtPredict[t,:,0] = (xPredict[t] @ params) 
         
         #find next SIRD, based on dtPredict[t] (which is S(t+1) - S(t)) to predict S(t) (and so on)
         SP[t+1] = SP[t] + dtPredict[t,0,0]
-        IP[t+1] = IP[t] + dtPredict[t,1,0]
-        RP[t+1] = RP[t] + dtPredict[t,2,0]
-        DP[t+1] = DP[t] + dtPredict[t,3,0]
+        AP[t+1] = AP[t] + dtPredict[t,1,0]
+        IP[t+1] = IP[t] + dtPredict[t,2,0]
+        RP[t+1] = RP[t] + dtPredict[t,3,0]
+        DP[t+1] = DP[t] + dtPredict[t,4,0]
     
-    return SP, IP, RP, DP
+    return SP, AP, IP, RP, DP
 
 
 
 #predict future days that are not known
-def predictFuture(S,I,R,D, daysToPredict, linVars=None, graphVals=[False,True,True,True]):
-    pS, pI, pR, pD = calculateFuture(S,I,R,D, daysToPredict, params=linVars)
+def predictFuture(S,A,I,R,D, daysToPredict, linVars=None, graphVals=[False,True,True,True,True]):
+    pS, pA, pI, pR, pD = calculateFuture(S,A,I,R,D, daysToPredict, params=linVars)
 
     #plot actual and predicted values
     fig, ax = plt.subplots(figsize=(18,8))
@@ -246,21 +287,24 @@ def predictFuture(S,I,R,D, daysToPredict, linVars=None, graphVals=[False,True,Tr
         ax.plot(S, color='purple', label='suscpetible')
         ax.plot(pS, color='purple', label='suscpetible', linestyle='dashed')
     if(graphVals[1]):
+        ax.plot(A, color='orange', label='asyptomatic')
+        ax.plot(pA, color='orange', label='asyptomatic', linestyle='dashed')
+    if(graphVals[2]):
         ax.plot(I, color='red', label='infected')
         ax.plot(pI, color='red', label='infected', linestyle='dashed')
-    if(graphVals[2]):
+    if(graphVals[3]):
         ax.plot(R, color='blue', label='recovered')
         ax.plot(pR, color='blue', label='recovered', linestyle='dashed')
-    if(graphVals[3]):
+    if(graphVals[4]):
         ax.plot(D, color='black', label='dead')
         ax.plot(pD, color='black', label='dead', linestyle='dashed')
       
-    return pS, pI, pR, pD, fig, ax #for easy manipulation/graphing
+    return pS, pA, pI, pR, pD, fig, ax #for easy manipulation/graphing
 
     
 #predict days that are known for testing purposes, predicts the end portion of the given data
-def predictMatch(S,I,R,D, daysToPredict, linVars=None, graphVals=[False,True,True,True]):
-    pS, pI, pR, pD = calculateFuture(S[0:-daysToPredict], I[0:-daysToPredict], R[0:-daysToPredict], D[0:-daysToPredict], daysToPredict, params=linVars)
+def predictMatch(S,A,I,R,D, daysToPredict, linVars=None, graphVals=[False,True,True,True]):
+    pS, pA, pI, pR, pD = calculateFuture(S[0:-daysToPredict], A[0:-daysToPredict], I[0:-daysToPredict], R[0:-daysToPredict], D[0:-daysToPredict], daysToPredict, params=linVars)
     
     #plot actual and predicted values
     fig, ax = plt.subplots(figsize=(18,8))
@@ -268,16 +312,19 @@ def predictMatch(S,I,R,D, daysToPredict, linVars=None, graphVals=[False,True,Tru
         ax.plot(S, color='purple', label='suscpetible')
         ax.plot(pS, color='purple', label='suscpetible', linestyle='dashed')
     if(graphVals[1]):
+        ax.plot(A, color='orange', label='asyptomatic')
+        ax.plot(pA, color='orange', label='asyptomatic', linestyle='dashed')
+    if(graphVals[2]):
         ax.plot(I, color='red', label='infected')
         ax.plot(pI, color='red', label='infected', linestyle='dashed')
-    if(graphVals[2]):
+    if(graphVals[3]):
         ax.plot(R, color='blue', label='recovered')
         ax.plot(pR, color='blue', label='recovered', linestyle='dashed')
-    if(graphVals[3]):
+    if(graphVals[4]):
         ax.plot(D, color='black', label='dead')
         ax.plot(pD, color='black', label='dead', linestyle='dashed')
       
-    return pS, pI, pR, pD, fig, ax #for easy manipulation
+    return pS, pA, pI, pR, pD, fig, ax #for easy manipulation/graphing
 
 #---------------------------------------------------------
 
