@@ -1,16 +1,15 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-#this model is for the constant parameter version of SIRD
+#this model is for the time varying parameter version of SIRD
 # S' = -beta * (SI/S+I)
 # I' = beta * (SI/S+I) - gamma*I - nu*I
 # R' = gamma*I
 # D' = nu*I
 
 #--------------------------------------------------------------------------
-#global variables used for many functions
-regularizer = 0
-weightDecay = 1
+#global variables used for many functions (no weight decay since this is time varying)
+
 #--------------------------------------------------------------------------
 
 #--------------------------------------------------------------------------
@@ -45,117 +44,59 @@ def getMatrix(S, I, R, D):
 
 #--------------------------------------------------------------------------
 #solve for parameters using weight decay and solving row by row
-def getLinVars(S, I, R, D):
+def getLinVars(S, I, R, D, graph=False):
     nu = getNu(I,D)
     gamma = getGamma(I,R)
     beta = getBeta(S,I,gamma,nu)
     
-    return [beta, gamma, nu]
+    if(graph):
+        fig, ax = plt.subplots(3, 1, figsize=(18,8))
+        ax[0].plot(beta, color="red")
+        ax[1].plot(gamma, color="blue")
+        ax[2].plot(nu, color="black")
+        ax[0].set_ylim(0)
+        ax[1].set_ylim(0)
+        ax[2].set_ylim(0)
+        return np.asarray([beta, gamma, nu]).transpose(), fig, ax
+        
+    return np.asarray([beta, gamma, nu]).transpose() #transpose so time is the first dimension
 
 
 def getGamma(I, R):
-    y = np.zeros((len(I)-1,1))
-    x = np.zeros((len(I)-1,1))
-    
     # R(t+1) - R(t) = gamma*I(t)
-    y[:,0] = R[1:] - R[:-1]
-    x[:,0] = I[:-1]
+    y = R[1:] - R[:-1]
+    x = I[:-1]
 
-    return np.linalg.lstsq(x, y, rcond = None)[0].flatten()[0] #solve for gamma
+    return y/x #solve for gamma
 
 def getNu(I, D):
-    y = np.zeros((len(I)-1,1))
-    x = np.zeros((len(I)-1,1))
-    
     # D(t+1) - D(t) = nu*I(t)
-    y[:,0] = D[1:] - D[:-1]
-    x[:,0] = I[:-1]
+    y = D[1:] - D[:-1]
+    x = I[:-1]
 
-    return np.linalg.lstsq(x, y, rcond = None)[0].flatten()[0] #solve for nu
+    return y/x #solve for nu
 
 def getBeta(S, I, gamma, nu):
-    y = np.zeros((2*(len(I)-1),1)) # 2 times length since every other row is for S' and every other is I'
-    x = np.zeros((2*(len(I)-1),1))
+    y = np.zeros((len(I)-1,2,1))
+    x = np.zeros((len(I)-1,2,1)) 
+    
+    beta = np.zeros(len(I) - 1)
     
     #betaNonLin = [b2,b3]
     #dS = -beta * (SI/S+I)
-    #dI = beta * (SI/S+I)\
+    #dI = beta * (SI/S+I)
+    y[:,0,0] = (S[1:] - S[:-1]) #s row
+    y[:,1,0] = (I[1:] - I[:-1]) + gamma*I[:-1] + nu*I[:-1] #i row
     
-    y[::2,  0] = (S[1:] - S[:-1]) #::2 is for skipping every other row (starts at 0)
-    y[1::2, 0] = (I[1:] - I[:-1]) + gamma*I[:-1] + nu*I[:-1]
+    x[:,0,0] = -(S[:-1]*I[:-1]) / (S[:-1] + I[:-1])
+    x[:,1,0] = (S[:-1]*I[:-1]) / (S[:-1] + I[:-1])
     
-    x[::2,  0] = -(S[:-1]*I[:-1]) / (S[:-1] + I[:-1])
-    x[1::2, 0] = (S[:-1]*I[:-1]) / (S[:-1] + I[:-1]) 
+    for t in range(len(y)):
+        beta[t] = np.linalg.lstsq(x[t], y[t], rcond = None)[0].flatten()[0]
     
-    #add weight decay
-    T = len(I)-1
-    for t in range(T):
-        x[t*2:(t*2)+2] = x[t*2:(t*2)+2] * np.sqrt(weightDecay**(T - t))
-        y[t*2:(t*2)+2] = y[t*2:(t*2)+2] * np.sqrt(weightDecay**(T - t))
-    
-    return np.linalg.lstsq(x, y, rcond = None)[0].flatten()[0] #solve for beta
+    return beta #solve for beta
 #--------------------------------------------------------------------------
 
-
-
-#--------------------------------------------------------------------------
-#find the error of the current parameters
-def getError(S, I, R, D, linVars, regError=True): #the custom error function for SIRD    
-    y, x = getMatrix(S, I, R, D)
-    
-    totalError = 0
-    #see paper for optimization function
-    T = len(y)
-    for t in range(T):
-        #add weight decay
-        y[t] = y[t] * np.sqrt(weightDecay**(T-t))
-        for row in range(len(x[t])):
-            x[t,row] = x[t,row] * np.sqrt(weightDecay**(T-t))
-
-        totalError = totalError + (np.linalg.norm((x[t] @ np.asarray(linVars)) - y[t].transpose(), ord=2)**2)
- 
-    #return (1.0/T) * np.linalg.norm((A @ params) - y.transpose(), ord=2)**2  + lamda*np.linalg.norm(params, ord=1)
-    totalError = (1.0/T)*totalError #divide by timeframe
-    if(regError):
-        totalError = totalError + regularizer*np.linalg.norm(linVars, ord=1) #regularization error
-    
-    return totalError
-#--------------------------------------------------------------------------
-
-
-#--------------------------------------------------------------------------
-#solve for q by gridding
-def getQ(I, R, D, pop, qMax = 1, resol=100, graph=False):
-    qMin = max((I + R + D)/pop)
-    
-    qList = np.zeros(resol)
-    for i in range(resol):
-        qList[i] = qMin + (i/resol)*(qMax-qMin) #go from qMin to qMax
-        
-    errorList = [] #find the error for each calculated value of q
-    for q in qList: #check eeach value of q
-        S = q*pop - I - R - D
-        #normalize so that S+I+R+D = 1, this allows errors to be consistant between different q values
-        S = S/(q*pop)
-        I = I/(q*pop)
-        R = R/(q*pop)
-        D = D/(q*pop)      
-        
-        linVars = getLinVars(S,I,R,D)
-        errorList.append(getError(S,I,R,D, linVars, regError=False)) #add errror, don't do a regularization error
-    
-    bestQIndex = 0
-    for i in range(resol):
-        if(errorList[bestQIndex] > errorList[i]):
-            bestQIndex = i
-    if(graph):
-        #plot objective function with q on the x-axis
-        fig, ax = plt.subplots(figsize=(18,8))
-        ax.plot(qList, errorList, color='purple')  
-        return qList[bestQIndex], fig,ax #return figure for modification
-
-    return qList[bestQIndex]
-#--------------------------------------------------------------------------    
 
 #--------------------------------------------------------------------------  
 def displayData(S,I,R,D, graphVals=[False,True,True,True]):
@@ -185,6 +126,12 @@ def displayData(S,I,R,D, graphVals=[False,True,True,True]):
 def calculateFuture(S,I,R,D, daysToPredict, params=None):
     if(params==None):
         params=getLinVars(S,I,R,D)
+        
+    #average out final days (weighted average) instead of just using the last day
+    paramsTemp = params
+    params = paramsTemp[0]
+    for i in range(1,len(paramsTemp)):
+        params = params*.5 + paramsTemp[i]*.5 #weighted so last day is 50%, 2nd to last is 25% and so 
     print("Lin Vars:", params)
     
     #set up matrices and starting info
