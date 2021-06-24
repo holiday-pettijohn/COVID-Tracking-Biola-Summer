@@ -178,7 +178,7 @@ def getMatrix(q, pop, I, R, D):
     sirdMatrix[:,3,2] = I[:-1] #nu
 
     #populate the S(t+1), I(t+1), ... matrix
-    nextIterMatrix[:,0,0] = 0 #no change
+    nextIterMatrix[:,0,0] = S[1:] - S[:-1]
     nextIterMatrix[:,1,0] = I[1:] - I[:-1]
     nextIterMatrix[:,2,0] = R[1:] - R[:-1]
     nextIterMatrix[:,3,0] = D[1:] - D[:-1]
@@ -355,7 +355,7 @@ def calculateFuture(infect, recov, dead, pop, daysToPredict, params=None, q=None
     dt, A = getSIRDMatrices(suscept, infect, recov, dead)
 
     if(params == None): #calculate params if not set, average from final 10 percent of days
-        params = calculateAverageParams(infect, recov, dead, pop, q, graph=False)
+        params = solveTimeVars(q,pop,infect, recov, dead, graph=False)
 
     sirdPredict = np.zeros((len(A) + daysToPredict, 4, 3))
     dtPredict = np.zeros((len(dt) + daysToPredict, 4, 1))
@@ -731,17 +731,18 @@ def predictConstFuture(infect, recov, dead, pop, daysToPredict, params, q, graph
     #plot actual and predicted values
     fig, ax = plt.subplots(figsize=(18,8))
     if(graphVals[0]):
-        ax.plot(suscept, color='blue', label='suscpetible')
-        ax.plot(pS, color='blue', label='suscpetible', linestyle='dashed')
+        ax.plot(suscept, color='purple', label='suscpetible')
+        ax.plot(pS, color='purple', label='suscpetible', linestyle='dashed')
     if(graphVals[1]):
-        ax.plot(infect, color='orange', label='infected')
-        ax.plot(pI, color='orange', label='infected', linestyle='dashed')
+        ax.plot(infect, color='red', label='infected')
+        ax.plot(pI, color='red', label='infected', linestyle='dashed')
     if(graphVals[2]):
-        ax.plot(recov, color='green', label='recovered')
-        ax.plot(pR, color='green', label='recovered', linestyle='dashed')
+        ax.plot(recov, color='blue', label='recovered')
+        ax.plot(pR, color='blue', label='recovered', linestyle='dashed')
     if(graphVals[3]):
         ax.plot(dead, color='black', label='dead')
         ax.plot(pD, color='black', label='dead', linestyle='dashed')
+        
 
     
 #predict days that are known for testing purposes, predicts the end portion of the given data
@@ -753,14 +754,14 @@ def predictConstMatch(infect, recov, dead, pop, daysToPredict, params, q, graphV
     #plot actual and predicted values
     fig, ax = plt.subplots(figsize=(18,8))
     if(graphVals[0]):
-        ax.plot(suscept, color='blue', label='suscpetible')
-        ax.plot(pS, color='blue', label='suscpetible', linestyle='dashed')
+        ax.plot(suscept, color='purple', label='suscpetible')
+        ax.plot(pS, color='purple', label='suscpetible', linestyle='dashed')
     if(graphVals[1]):
-        ax.plot(infect, color='orange', label='infected')
-        ax.plot(pI, color='orange', label='infected', linestyle='dashed')
+        ax.plot(infect, color='red', label='infected')
+        ax.plot(pI, color='red', label='infected', linestyle='dashed')
     if(graphVals[2]):
-        ax.plot(recov, color='green', label='recovered')
-        ax.plot(pR, color='green', label='recovered', linestyle='dashed')
+        ax.plot(recov, color='blue', label='recovered')
+        ax.plot(pR, color='blue', label='recovered', linestyle='dashed')
     if(graphVals[3]):
         ax.plot(dead, color='black', label='dead')
         ax.plot(pD, color='black', label='dead', linestyle='dashed')
@@ -814,10 +815,14 @@ def solveTimeVars(q, pop, I, R, D, graph=False): #calculate the linear vars for 
     
     beta = y/x
     
+    linVars = np.array([beta,gamma,nu]).T
+    
     if(graph): #plot the vars over time
         fig, ax = plt.subplots(3, 1, figsize=(18,8))
         ax[0].plot(beta, color="red")
-        ax[1].plot(gamma, color="green")
+        ax[1].plot(gamma, color="blue")
         ax[2].plot(nu, color="black")
 
-    return [beta,gamma,nu]
+        return linVars, fig, ax #if graphing enabled return the figure
+    
+    return linVars
