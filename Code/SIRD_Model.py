@@ -178,7 +178,7 @@ def getMatrix(q, pop, I, R, D):
     sirdMatrix[:,3,2] = I[:-1] #nu
 
     #populate the S(t+1), I(t+1), ... matrix
-    nextIterMatrix[:,0,0] = 0 #no change
+    nextIterMatrix[:,0,0] = S[1:] - S[:-1]
     nextIterMatrix[:,1,0] = I[1:] - I[:-1]
     nextIterMatrix[:,2,0] = R[1:] - R[:-1]
     nextIterMatrix[:,3,0] = D[1:] - D[:-1]
@@ -815,12 +815,14 @@ def solveTimeVars(q, pop, I, R, D, graph=False): #calculate the linear vars for 
     
     beta = y/x
     
+    linVars = np.array([beta,gamma,nu]).T
+    
     if(graph): #plot the vars over time
         fig, ax = plt.subplots(3, 1, figsize=(18,8))
         ax[0].plot(beta, color="red")
         ax[1].plot(gamma, color="blue")
         ax[2].plot(nu, color="black")
-    temp = np.array([beta,gamma,nu])
-    temp = temp.T
 
-    return temp
+        return linVars, fig, ax #if graphing enabled return the figure
+    
+    return linVars

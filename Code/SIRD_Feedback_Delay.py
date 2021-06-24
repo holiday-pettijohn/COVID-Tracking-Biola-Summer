@@ -106,7 +106,7 @@ def getMatrix(betaNonLin, q, pop, I, R, D):
 
     #infected row, dA = B(t)*(c0*I / c0 + I) - gI - vI, B(t) = b0 + b1/(1+b2*I^b3)
     sirdMatrix[:,1,0] = (c0 * I[:-1]) / (c0 + I[:-1]) #b0
-    sirdMatrix[:,1,1] = (c0 * I[:-1]) / (c0 + I[:-1]) * (1 / (1 + (betaNonLin[1]*shiftI[:-1]/(q*pop))**betaNonLin[-1])) #b1
+    sirdMatrix[:,1,1] = (c0 * I[:-1]) / (c0 + I[:-1]) * (1 / (1 + (betaNonLin[0]*shiftI[:-1]/(q*pop))**betaNonLin[1])) #b1
     sirdMatrix[:,1,2] = -I[:-1] #gamma
     sirdMatrix[:,1,3] = -I[:-1] #nu
 
@@ -148,14 +148,11 @@ def errorFunc(betaNonLin, linVars, q,pop, I, R, D): #the custom error function f
     #see paper for optimization function
     T = len(y)
     for t in range(T):
-        print(A[t] @ np.asarray(linVars) - y[t].transpose() )
         #add weight decay
         y[t] = y[t] * np.sqrt(weightDecay**(T-t))
         for row in range(len(A[t])):
             A[t,row] = A[t,row] * np.sqrt(weightDecay**(T-t))
         
-        print(A[t] @ np.asarray(linVars) - y[t].transpose() )
-        print()
         totalError = totalError + (np.linalg.norm((A[t] @ np.asarray(linVars)) - y[t].transpose(), ord=2)**2)
  
     #return (1.0/T) * np.linalg.norm((A @ params) - y.transpose(), ord=2)**2  + lamda*np.linalg.norm(params, ord=1)
