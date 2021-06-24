@@ -11,6 +11,12 @@ import SIRD_Model
 #--------------------------------------------------------------------------------------------------------
 #this file is essentially the SIRD_Feedback model with one change, instead of having beta = b0 + b1/(1 + (b2*I)**b3), we replace I with whatever I was some shifted days ago (i.e. 3 weeks)
 
+#global variables used for this file
+regularizar = 0
+weightDecay = 1
+
+delay = 21
+
 def getLinVars(I, R, D, q, pop, betaNonLin): 
     gamma = getGamma(I,R)
     nu = getNu(I,D)
@@ -26,6 +32,13 @@ def getGamma(I, R):
     y[:,0] = R[1:] - R[:-1]
     X[:,0] = I[:-1]
 
+    
+    #add weight decay
+    T = len(y)
+    for t in range(T):
+        X[t] = X[t] * np.sqrt(weightDecay**(T - t))
+        y[t] = y[t] * np.sqrt(weightDecay**(T - t))
+    
     return np.linalg.lstsq(X, y, rcond = None)[0].flatten()[0] #solve for gamma
 
 def getNu(I, D):
@@ -35,14 +48,19 @@ def getNu(I, D):
     # D(t+1) - D(t) = nu*I(t)
     y[:,0] = D[1:] - D[:-1]
     X[:,0] = I[:-1]
+    
+    #add weight decay
+    T = len(y)
+    for t in range(T):
+        X[t] = X[t] * np.sqrt(weightDecay**(T - t))
+        y[t] = y[t] * np.sqrt(weightDecay**(T - t))
 
     return np.linalg.lstsq(X, y, rcond = None)[0].flatten()[0] #solve for nu
 
 def getBeta(q,pop, I, betaNonLin, gamma, nu): #solve for b0 and b1 , kappa, gamma, nu should be solved for
     
-    shift = 21
     shiftI = np.zeros(len(I))
-    shiftI[shift:] = I[:-shift]
+    shiftI[delay:] = I[:-delay]
     
     y = np.zeros((len(I)-1,1))
     X = np.zeros((len(I)-1,2)) #column for b0, b1
@@ -56,6 +74,12 @@ def getBeta(q,pop, I, betaNonLin, gamma, nu): #solve for b0 and b1 , kappa, gamm
     X[:,0] = (q*pop *I[:-1]) / (q*pop + I[:-1]) #beta0
     X[:,1] = (1/(1 + (betaNonLin[-2] * (shiftI[:-1] / q*pop) )**betaNonLin[-1] )) * (q*pop *I[:-1]) / (q*pop + I[:-1]) #beta1
     
+    #add weight decay
+    T = len(y)
+    for t in range(T):
+        X[t] = X[t] * np.sqrt(weightDecay**(T - t))
+        y[t] = y[t] * np.sqrt(weightDecay**(T - t))
+    
     return np.linalg.lstsq(X, y, rcond = None)[0].flatten() #solve for b0 and b1
 
 
@@ -68,13 +92,11 @@ def calcRecovered(I, D): #where I is total infections, not current infections
 #for all functions assume linVars = [b0, b1, gamma, nu]
 #let beta = b0 + b1/(1+(b2*I)**b3))
 
-def getMatrix(nonLinVars, pop, I, R, D):
-    q = nonLinVars[0]
+def getMatrix(betaNonLin, q, pop, I, R, D):
     c0 = q*pop
     
-    shift = 21
     shiftI = np.zeros(len(I))
-    shiftI[shift:] = I[:-shift]
+    shiftI[delay:] = I[:-delay]
     
     sirdMatrix = np.zeros((len(I) - 1, 4, 4))
     nextIterMatrix = np.zeros((len(I) - 1, 4, 1)) #the S(t+1), I(t+1), ... matrix
@@ -84,7 +106,7 @@ def getMatrix(nonLinVars, pop, I, R, D):
 
     #infected row, dA = B(t)*(c0*I / c0 + I) - gI - vI, B(t) = b0 + b1/(1+b2*I^b3)
     sirdMatrix[:,1,0] = (c0 * I[:-1]) / (c0 + I[:-1]) #b0
-    sirdMatrix[:,1,1] = (c0 * I[:-1]) / (c0 + I[:-1]) * (1 / (1 + (nonLinVars[1]*shiftI[:-1]/(q*pop))**nonLinVars[-1])) #b1
+    sirdMatrix[:,1,1] = (c0 * I[:-1]) / (c0 + I[:-1]) * (1 / (1 + (betaNonLin[1]*shiftI[:-1]/(q*pop))**betaNonLin[-1])) #b1
     sirdMatrix[:,1,2] = -I[:-1] #gamma
     sirdMatrix[:,1,3] = -I[:-1] #nu
 
@@ -119,17 +141,27 @@ def flattenMatrix(y, X): #get the matrices in a 2d format, time dimension is put
 #--------------------------------------------------------------------------------------------------------
 
 
-def errorFunc(nonLinVars, linVars, pop, I, R, D): #the custom error function for SIRD    
-    y, A = getMatrix(nonLinVars, pop, I, R, D)
+def errorFunc(betaNonLin, linVars, q,pop, I, R, D): #the custom error function for SIRD    
+    y, A = getMatrix(betaNonLin, q,pop, I, R, D)
     
     totalError = 0
     #see paper for optimization function
-    T = len(A)
+    T = len(y)
     for t in range(T):
+        print(A[t] @ np.asarray(linVars) - y[t].transpose() )
+        #add weight decay
+        y[t] = y[t] * np.sqrt(weightDecay**(T-t))
+        for row in range(len(A[t])):
+            A[t,row] = A[t,row] * np.sqrt(weightDecay**(T-t))
+        
+        print(A[t] @ np.asarray(linVars) - y[t].transpose() )
+        print()
         totalError = totalError + (np.linalg.norm((A[t] @ np.asarray(linVars)) - y[t].transpose(), ord=2)**2)
-    
+ 
     #return (1.0/T) * np.linalg.norm((A @ params) - y.transpose(), ord=2)**2  + lamda*np.linalg.norm(params, ord=1)
     totalError = (1.0/T)*totalError #divide by timeframe
+    totalError = totalError + regularizer*np.linalg.norm(linVars, ord=1) #regularization error
+    
     return totalError
 
 
@@ -150,7 +182,7 @@ def gridNonLinVars(constraints, varResols, pop, I, R, D): #solve for non linear 
         minVars.append((constraints[i][0]))
     
     linVars = getLinVars(I, R, D, minVars[0], pop, minVars[1:3])
-    minCost = errorSAIRD(minVars, paramArg, pop, I, R, D) #the custom error function for SIRD
+    minCost = errorFunc(minVars[1:], linVars, minVars[0], pop, I, R, D) #the custom error function for SIRD
     
     currVars = minVars.copy() #deep copy
     currCost = minCost
@@ -161,7 +193,7 @@ def gridNonLinVars(constraints, varResols, pop, I, R, D): #solve for non linear 
     while(continueLoop):
     
         linVars = getLinVars(I, R, D, currVars[0], pop, currVars[1:3])
-        currCost = errorFunc(currVars, paramArg, pop, I, R, D)
+        currCost = errorFunc(currVars[1:], linVars, currVars[0], pop, I, R, D)
         if(currCost < minCost):
             minCost = currCost
             minVars = currVars.copy()
@@ -179,7 +211,7 @@ def gridNonLinVars(constraints, varResols, pop, I, R, D): #solve for non linear 
                 currVars[varIndex] = currVars[varIndex] + varSteps[varIndex] #iterate var        
         varIndex = 0 
        
-    linVars = getLinVars(A, I, R, D, minVars[0], pop, minVars[1:3]) #set lin vars according to the min nonlin vars
+    linVars = getLinVars(I, R, D, minVars[0], pop, minVars[1:3]) #set lin vars according to the min nonlin vars
     return minVars, linVars #return vars and linVars
 
 def solveAllVars(nonLinConstraints, nonLinResol, pop, I, R, D):
@@ -193,7 +225,7 @@ def solveAllVars(nonLinConstraints, nonLinResol, pop, I, R, D):
     print("b1: ", linVars[1])
     print("g:  ", linVars[2])
     print("nu: ", linVars[3])
-    print("cost: ", errorFunc(nonLinVars, linVars, pop, I, R, D))
+    print("cost: ", errorFunc(nonLinVars[1:], linVars, nonLinVars[0], pop, I, R, D))
     print() #spacer
 
     return nonLinVars, linVars
@@ -202,9 +234,8 @@ def solveAllVars(nonLinConstraints, nonLinResol, pop, I, R, D):
 
 def calculateBeta(betaNonLin, linVars, q,pop, I): #how to calculate beta as function of time
     
-    shift = 21
     shiftI = np.zeros(len(I))
-    shiftI[shift:] = I[:-shift]
+    shiftI[delay:] = I[:-delay]
     
     b0 = linVars[0]
     b1 = linVars[1]
@@ -218,9 +249,8 @@ def calculateBeta(betaNonLin, linVars, q,pop, I): #how to calculate beta as func
 #predict the next some days using constant parameters, q and params will be calculated if not set, uses smoothing method  from paper
 def calculateFuture(nonLinVars, linVars, I,R,D, pop, daysToPredict):
     
-    shift = 21
     shiftIP = np.zeros(len(I) + daysToPredict)
-    shiftIP[shift:len(I)] = I[:-shift]
+    shiftIP[delay:len(I)] = I[:-delay]
     
     #A=sirdmatrix, and dt=nextIterMatrix, if we know S(t) we should be able to predict S(t+1)
     q = nonLinVars[0]

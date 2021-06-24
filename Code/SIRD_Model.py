@@ -731,17 +731,18 @@ def predictConstFuture(infect, recov, dead, pop, daysToPredict, params, q, graph
     #plot actual and predicted values
     fig, ax = plt.subplots(figsize=(18,8))
     if(graphVals[0]):
-        ax.plot(suscept, color='blue', label='suscpetible')
-        ax.plot(pS, color='blue', label='suscpetible', linestyle='dashed')
+        ax.plot(suscept, color='purple', label='suscpetible')
+        ax.plot(pS, color='purple', label='suscpetible', linestyle='dashed')
     if(graphVals[1]):
-        ax.plot(infect, color='orange', label='infected')
-        ax.plot(pI, color='orange', label='infected', linestyle='dashed')
+        ax.plot(infect, color='red', label='infected')
+        ax.plot(pI, color='red', label='infected', linestyle='dashed')
     if(graphVals[2]):
-        ax.plot(recov, color='green', label='recovered')
-        ax.plot(pR, color='green', label='recovered', linestyle='dashed')
+        ax.plot(recov, color='blue', label='recovered')
+        ax.plot(pR, color='blue', label='recovered', linestyle='dashed')
     if(graphVals[3]):
         ax.plot(dead, color='black', label='dead')
         ax.plot(pD, color='black', label='dead', linestyle='dashed')
+        
 
     
 #predict days that are known for testing purposes, predicts the end portion of the given data
@@ -753,14 +754,14 @@ def predictConstMatch(infect, recov, dead, pop, daysToPredict, params, q, graphV
     #plot actual and predicted values
     fig, ax = plt.subplots(figsize=(18,8))
     if(graphVals[0]):
-        ax.plot(suscept, color='blue', label='suscpetible')
-        ax.plot(pS, color='blue', label='suscpetible', linestyle='dashed')
+        ax.plot(suscept, color='purple', label='suscpetible')
+        ax.plot(pS, color='purple', label='suscpetible', linestyle='dashed')
     if(graphVals[1]):
-        ax.plot(infect, color='orange', label='infected')
-        ax.plot(pI, color='orange', label='infected', linestyle='dashed')
+        ax.plot(infect, color='red', label='infected')
+        ax.plot(pI, color='red', label='infected', linestyle='dashed')
     if(graphVals[2]):
-        ax.plot(recov, color='green', label='recovered')
-        ax.plot(pR, color='green', label='recovered', linestyle='dashed')
+        ax.plot(recov, color='blue', label='recovered')
+        ax.plot(pR, color='blue', label='recovered', linestyle='dashed')
     if(graphVals[3]):
         ax.plot(dead, color='black', label='dead')
         ax.plot(pD, color='black', label='dead', linestyle='dashed')
@@ -817,7 +818,7 @@ def solveTimeVars(q, pop, I, R, D, graph=False): #calculate the linear vars for 
     if(graph): #plot the vars over time
         fig, ax = plt.subplots(3, 1, figsize=(18,8))
         ax[0].plot(beta, color="red")
-        ax[1].plot(gamma, color="green")
+        ax[1].plot(gamma, color="blue")
         ax[2].plot(nu, color="black")
     temp = np.array([beta,gamma,nu])
     temp = temp.T
