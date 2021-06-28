@@ -12,19 +12,6 @@ import matplotlib.pyplot as plt
 #global variables used for many functions (no weight decay for time varying)
 #--------------------------------------------------------------------------
 
-def getAsympt(I, shift=10): #assume the current infected population was the asymptomatic population shifted days ago
-    A = np.zeros(len(I))
-    A[:-shift] = I[shift:]
-    
-    #no propre way to define A for shift last days, just say equal to I
-    for t in range(1,shift+1):
-        A[-t] = I[-t]
-    
-    return A
-
-def getSuscept(A, I, R, D, q, pop):
-    return (q*pop) - A - I - R - D #S + I + R + D = q*pop
-
 #--------------------------------------------------------------------------
 #create the basic model matrices
 def getMatrix(S, A, I, R, D):    
@@ -32,10 +19,10 @@ def getMatrix(S, A, I, R, D):
     nextIterMatrix = np.zeros((len(S) - 1, 5, 1)) #the S(t+1), I(t+1), ... matrix
     
     #susceptible row, dS = 0
-    sirdMatrix[:,0,0] = -(S[:-1] * I[:-1]) / (S[:-1] + I[:-1]) #beta
+    sirdMatrix[:,0,0] = -(S[:-1] * A[:-1]) / (S[:-1] + A[:-1]) #beta
 
     #asymptomatic row
-    sirdMatrix[:,1,0] = (S[:-1] * I[:-1]) / (S[:-1] + I[:-1]) #beta
+    sirdMatrix[:,1,0] = (S[:-1] * A[:-1]) / (S[:-1] + A[:-1]) #beta
     sirdMatrix[:,1,1] = -A[:-1] #kappa
     
     #infected row
@@ -99,7 +86,7 @@ def getNu(I, D):
 
     return y/x #solve for nu
 
-def getKappa(A,I, gamma, nu):
+def getKappa(A, I, gamma, nu):
     #A' = A*kapp - I*gmma - I*nu
     
     y = A[1:] - A[:-1] + gamma*I[:-1] + nu*I[:-1]
@@ -119,8 +106,8 @@ def getBeta(S, A, I, kappa):
     y[:,0,0] = (S[1:] - S[:-1]) #s row
     y[:,1,0] = (I[1:] - I[:-1]) + kappa*A[:-1]
     
-    x[:,0,0] = -(S[:-1]*I[:-1]) / (S[:-1] + I[:-1])
-    x[:,1,0] = (S[:-1]*I[:-1]) / (S[:-1] + I[:-1])
+    x[:,0,0] = -(S[:-1]*A[:-1]) / (S[:-1] + A[:-1])
+    x[:,1,0] = (S[:-1]*A[:-1]) / (S[:-1] + A[:-1])
     
     for t in range(len(y)):
         beta[t] = np.linalg.lstsq(x[t], y[t], rcond = None)[0].flatten()[0]
@@ -193,10 +180,10 @@ def calculateFuture(S,A,I,R,D, daysToPredict, params=None):
     for t in range(T, T + daysToPredict): #go from last element in known list to end of prediction, see paper for method
         #populate the 5x5 matrix with parameters
         #susceptible row, dS = -(SI/S+I)
-        xPredict[t,0,0] = -(SP[t] * IP[t]) / (SP[t] + IP[t])
+        xPredict[t,0,0] = -(SP[t] * AP[t]) / (SP[t] + AP[t])
 
         #asymptomatic row
-        xPredict[t,1,0] = (SP[t] * IP[t]) / (SP[t] + IP[t])
+        xPredict[t,1,0] = (SP[t] * AP[t]) / (SP[t] + AP[t])
         xPredict[t,1,1] = -AP[t] #kappa
         
         #infected row, dI = kappa*A - I*gamma - nu*I
