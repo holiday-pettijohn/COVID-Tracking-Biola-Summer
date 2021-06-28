@@ -26,13 +26,15 @@ def getMatrix(S, I, R, D, nonLinVars):
     
     pop = S+I+R+D #for normalizing I in feedback
     
+    newI = (I+R+D)[1:] - (I+R+D)[:-1] #use new infections in the feedback
+    
     #susceptible row, dS = 0
     sirdMatrix[:,0,0] = -(S[:-1] * I[:-1]) / (S[:-1] + I[:-1]) #beta0
-    sirdMatrix[:,0,1] = -(S[:-1] * I[:-1]) / (S[:-1] + I[:-1]) * (1 / (1 + (nonLinVars[0]*I[:-1]/pop[:-1])**nonLinVars[1] )) #beta1
+    sirdMatrix[:,0,1] = -(S[:-1] * I[:-1]) / (S[:-1] + I[:-1]) * (1 / (1 + (nonLinVars[0]*newI/pop[:-1])**nonLinVars[1] )) #beta1
 
     #infected row
     sirdMatrix[:,1,0] = (S[:-1] * I[:-1]) / (S[:-1] + I[:-1]) #beta0
-    sirdMatrix[:,1,1] = (S[:-1] * I[:-1]) / (S[:-1] + I[:-1]) * (1 / (1 + (nonLinVars[0]*I[:-1]/pop[:-1])**nonLinVars[1] )) #beta1
+    sirdMatrix[:,1,1] = (S[:-1] * I[:-1]) / (S[:-1] + I[:-1]) * (1 / (1 + (nonLinVars[0]*newI/pop[:-1])**nonLinVars[1] )) #beta1
     sirdMatrix[:,1,2] = -I[:-1] #gamma
     sirdMatrix[:,1,3] = -I[:-1] #nu
 
@@ -111,6 +113,8 @@ def getBeta(S,I,R,D , nonLinVars, gamma, nu):
     
     pop = S+I+R+D #for normalizing b1*I
     
+    newI = (I+R+D)[1:] - (I+R+D)[:-1] #use new infections in the feedback
+    
     #S and I rows
     y[::2,  0] = (S[1:] - S[:-1]) #::2 is for skipping every other row (starts at 0)
     y[1::2, 0] = (I[1:] - I[:-1]) + gamma*I[:-1] + nu*I[:-1]
@@ -118,8 +122,8 @@ def getBeta(S,I,R,D , nonLinVars, gamma, nu):
     x[::2,  0] = -(S[:-1]*I[:-1]) / (S[:-1] + I[:-1]) #beta0
     x[1::2, 0] = (S[:-1]*I[:-1]) / (S[:-1] + I[:-1]) #beta0 
     
-    x[::2,  1] = -(S[:-1]*I[:-1]) / (S[:-1] + I[:-1]) * (1 / (1 + (nonLinVars[0]*I[:-1]/pop[:-1])**nonLinVars[1] )) #beta1
-    x[1::2, 1] = (S[:-1]*I[:-1]) / (S[:-1] + I[:-1]) * (1 / (1 + (nonLinVars[0]*I[:-1]/pop[:-1])**nonLinVars[1] )) #beta1
+    x[::2,  1] = -(S[:-1]*I[:-1]) / (S[:-1] + I[:-1]) * (1 / (1 + (nonLinVars[0]*newI/pop[:-1])**nonLinVars[1] )) #beta1
+    x[1::2, 1] = (S[:-1]*I[:-1]) / (S[:-1] + I[:-1]) * (1 / (1 + (nonLinVars[0]*newI/pop[:-1])**nonLinVars[1] )) #beta1
     
     if(betaUseDecay):
         #add weight decay
@@ -160,8 +164,10 @@ def getError(S, I, R, D, linVars, nonLinVars, regError=True): #the custom error 
 
 def getBetaTime(S, I, R, D, linVars, nonLinVars): #calculate beta from b0, b1, b2, b3
     #beta = b0 + b1/(1+b2*I**b3)
-    pop = S+I+R+D
-    return (linVars[0] + (linVars[1] / (1 + (nonLinVars[0] * I/pop)**nonLinVars[1] ) )) #beta over time, I/pop for normalization
+    pop = (S+I+R+D)[0]
+    newI = (I+R+D)[1:] - (I+R+D)[:-1] #use new infections in the feedback
+    
+    return (linVars[0] + (linVars[1] / (1 + (nonLinVars[0] * newI/pop)**nonLinVars[1] ) )) #beta over time, I/pop for normalization
     
 
 
@@ -294,16 +300,18 @@ def calculateFuture(S,I,R,D, daysToPredict, params=None, nonLinParams=None):
 
     
     T = len(I) - 1
-    for t in range(T, T + daysToPredict): #go from last element in known list to end of prediction, see paper for method
+    for t in range(T-1, T + daysToPredict): #go from last element in known list to end of prediction, see paper for method
         pop = SP[t] + IP[t] + RP[t] + DP[t] #for normalizing b2*I
+        
+        newI = (IP+RP+DP)[t+1] - (IP+RP+DP)[t] #use new infections in the feedback
         #populate the 5x5 matrix with parameters
         #susceptible row, dS = -(SI/S+I)
         xPredict[t,0,0] = -(SP[t] * IP[t]) / (SP[t] + IP[t]) #b0
-        xPredict[t,0,1] = -(SP[t] * IP[t]) / (SP[t] + IP[t]) * (1 / (1 + (nonLinParams[0]*IP[t]/pop)**nonLinParams[1] )) #b1
+        xPredict[t,0,1] = -(SP[t] * IP[t]) / (SP[t] + IP[t]) * (1 / (1 + (nonLinParams[0]*newI/pop)**nonLinParams[1] )) #b1
 
         #infected row, dA = B*(S*I / S + I)
         xPredict[t,1,0] = (SP[t] * IP[t]) / (SP[t] + IP[t]) #b0
-        xPredict[t,1,1] = (SP[t] * IP[t]) / (SP[t] + IP[t]) * (1 / (1 + (nonLinParams[0]*IP[t]/pop)**nonLinParams[1] )) #b1
+        xPredict[t,1,1] = (SP[t] * IP[t]) / (SP[t] + IP[t]) * (1 / (1 + (nonLinParams[0]*newI/pop)**nonLinParams[1] )) #b1
         xPredict[t,1,2] = -IP[t] #gamma
         xPredict[t,1,3] = -IP[t] #nu
 
