@@ -15,7 +15,9 @@ import matplotlib.pyplot as plt
 #global variables used for many functions
 regularizer = 0
 weightDecay = 1
-betaUseDecay = False #since beta is modeled with feedback, by default it doesn't use weightDecay
+betaUseDecay = False #since Beta is modeled with feedback it normally doesn't use weight decay
+
+delay = 21
 #--------------------------------------------------------------------------
 
 #--------------------------------------------------------------------------
@@ -25,14 +27,16 @@ def getMatrix(S, I, R, D, nonLinVars):
     nextIterMatrix = np.zeros((len(S) - 1, 4, 1)) #the S(t+1), I(t+1), ... matrix
     
     pop = S+I+R+D #for normalizing I in feedback
+    shiftI = np.zeros(len(I))
+    shiftI[delay:] = I[:-delay]
     
     #susceptible row, dS = 0
     sirdMatrix[:,0,0] = -(S[:-1] * I[:-1]) / (S[:-1] + I[:-1]) #beta0
-    sirdMatrix[:,0,1] = -(S[:-1] * I[:-1]) / (S[:-1] + I[:-1]) * (1 / (1 + (nonLinVars[0]*I[:-1]/pop[:-1])**nonLinVars[1] )) #beta1
+    sirdMatrix[:,0,1] = -(S[:-1] * I[:-1]) / (S[:-1] + I[:-1]) * (1 / (1 + (nonLinVars[0]*shiftI[:-1]/pop[:-1])**nonLinVars[1] )) #beta1
 
     #infected row
     sirdMatrix[:,1,0] = (S[:-1] * I[:-1]) / (S[:-1] + I[:-1]) #beta0
-    sirdMatrix[:,1,1] = (S[:-1] * I[:-1]) / (S[:-1] + I[:-1]) * (1 / (1 + (nonLinVars[0]*I[:-1]/pop[:-1])**nonLinVars[1] )) #beta1
+    sirdMatrix[:,1,1] = (S[:-1] * I[:-1]) / (S[:-1] + I[:-1]) * (1 / (1 + (nonLinVars[0]*shiftI[:-1]/pop[:-1])**nonLinVars[1] )) #beta1
     sirdMatrix[:,1,2] = -I[:-1] #gamma
     sirdMatrix[:,1,3] = -I[:-1] #nu
 
@@ -111,6 +115,9 @@ def getBeta(S,I,R,D , nonLinVars, gamma, nu):
     
     pop = S+I+R+D #for normalizing b1*I
     
+    shiftI = np.zeros(len(I))
+    shiftI[delay:] = I[:-delay]
+    
     #S and I rows
     y[::2,  0] = (S[1:] - S[:-1]) #::2 is for skipping every other row (starts at 0)
     y[1::2, 0] = (I[1:] - I[:-1]) + gamma*I[:-1] + nu*I[:-1]
@@ -118,8 +125,8 @@ def getBeta(S,I,R,D , nonLinVars, gamma, nu):
     x[::2,  0] = -(S[:-1]*I[:-1]) / (S[:-1] + I[:-1]) #beta0
     x[1::2, 0] = (S[:-1]*I[:-1]) / (S[:-1] + I[:-1]) #beta0 
     
-    x[::2,  1] = -(S[:-1]*I[:-1]) / (S[:-1] + I[:-1]) * (1 / (1 + (nonLinVars[0]*I[:-1]/pop[:-1])**nonLinVars[1] )) #beta1
-    x[1::2, 1] = (S[:-1]*I[:-1]) / (S[:-1] + I[:-1]) * (1 / (1 + (nonLinVars[0]*I[:-1]/pop[:-1])**nonLinVars[1] )) #beta1
+    x[::2,  1] = -(S[:-1]*I[:-1]) / (S[:-1] + I[:-1]) * (1 / (1 + (nonLinVars[0]*shiftI[:-1]/pop[:-1])**nonLinVars[1] )) #beta1
+    x[1::2, 1] = (S[:-1]*I[:-1]) / (S[:-1] + I[:-1]) * (1 / (1 + (nonLinVars[0]*shiftI[:-1]/pop[:-1])**nonLinVars[1] )) #beta1
     
     if(betaUseDecay):
         #add weight decay
@@ -161,7 +168,11 @@ def getError(S, I, R, D, linVars, nonLinVars, regError=True): #the custom error 
 def getBetaTime(S, I, R, D, linVars, nonLinVars): #calculate beta from b0, b1, b2, b3
     #beta = b0 + b1/(1+b2*I**b3)
     pop = S+I+R+D
-    return (linVars[0] + (linVars[1] / (1 + (nonLinVars[0] * I/pop)**nonLinVars[1] ) )) #beta over time, I/pop for normalization
+    
+    shiftI = np.zeros(len(I))
+    shiftI[delay:] = I[:-delay]
+    
+    return (linVars[0] + (linVars[1] / (1 + (nonLinVars[0] * shiftI/pop)**nonLinVars[1] ) )) #beta over time, I/pop for normalization
     
 
 
@@ -281,7 +292,7 @@ def calculateFuture(S,I,R,D, daysToPredict, params=None, nonLinParams=None):
 
     xPredict[0:len(X)] = X
     dtPredict[0:len(dt)] = dt
-
+    
     SP = np.zeros(len(S) + daysToPredict)
     IP = np.zeros(len(I) + daysToPredict)
     RP = np.zeros(len(R) + daysToPredict)
@@ -296,14 +307,17 @@ def calculateFuture(S,I,R,D, daysToPredict, params=None, nonLinParams=None):
     T = len(I) - 1
     for t in range(T, T + daysToPredict): #go from last element in known list to end of prediction, see paper for method
         pop = SP[t] + IP[t] + RP[t] + DP[t] #for normalizing b2*I
+        
+        shiftI = IP[t-delay] #the infected number shifted days ago
+        
         #populate the 5x5 matrix with parameters
         #susceptible row, dS = -(SI/S+I)
         xPredict[t,0,0] = -(SP[t] * IP[t]) / (SP[t] + IP[t]) #b0
-        xPredict[t,0,1] = -(SP[t] * IP[t]) / (SP[t] + IP[t]) * (1 / (1 + (nonLinParams[0]*IP[t]/pop)**nonLinParams[1] )) #b1
+        xPredict[t,0,1] = -(SP[t] * IP[t]) / (SP[t] + IP[t]) * (1 / (1 + (nonLinParams[0]*shiftI/pop)**nonLinParams[1] )) #b1
 
         #infected row, dA = B*(S*I / S + I)
         xPredict[t,1,0] = (SP[t] * IP[t]) / (SP[t] + IP[t]) #b0
-        xPredict[t,1,1] = (SP[t] * IP[t]) / (SP[t] + IP[t]) * (1 / (1 + (nonLinParams[0]*IP[t]/pop)**nonLinParams[1] )) #b1
+        xPredict[t,1,1] = (SP[t] * IP[t]) / (SP[t] + IP[t]) * (1 / (1 + (nonLinParams[0]*shiftI/pop)**nonLinParams[1] )) #b1
         xPredict[t,1,2] = -IP[t] #gamma
         xPredict[t,1,3] = -IP[t] #nu
 

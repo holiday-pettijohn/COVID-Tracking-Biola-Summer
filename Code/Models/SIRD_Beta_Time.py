@@ -69,6 +69,14 @@ def getGamma(I, R):
     y[:,0] = R[1:] - R[:-1]
     x[:,0] = I[:-1]
 
+    
+    #add weight decay
+    T = len(I)-1
+    for t in range(T):
+        y[t] = y[t] * np.sqrt(weightDecay**(T-t))
+        x[t] = x[t] * np.sqrt(weightDecay**(T-t))
+        
+        
     return np.linalg.lstsq(x, y, rcond = None)[0].flatten()[0] #solve for gamma
 
 def getNu(I, D):
@@ -78,6 +86,12 @@ def getNu(I, D):
     # D(t+1) - D(t) = nu*I(t)
     y[:,0] = D[1:] - D[:-1]
     x[:,0] = I[:-1]
+    
+    #add weight decay
+    T = len(I)-1
+    for t in range(T):
+        y[t] = y[t] * np.sqrt(weightDecay**(T-t))
+        x[t] = x[t] * np.sqrt(weightDecay**(T-t))
 
     return np.linalg.lstsq(x, y, rcond = None)[0].flatten()[0] #solve for nu
 
