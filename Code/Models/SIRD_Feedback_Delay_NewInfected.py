@@ -20,16 +20,37 @@ betaUseDecay = False #since Beta is modeled with feedback it normally doesn't us
 delay = 21
 #--------------------------------------------------------------------------
 
+def getShift(I,R,D):
+    newI = np.zeros(len(I))
+    newI[delay:-1] = np.diff((I+R+D)[:-delay])
+    
+    return newI
+    #no real way to approximate the last day, so use the previous, this changes the slope definition of I(t+1)-I(t) to I(t) - I(t-1)
+
+#smooth out by window average, works on edge cases, window should be odd.
+def getSmoothed(I, window=7): 
+    halfSize = int(window/2) #i.e. 3
+    smoothI = I
+    for i in range(len(I)):
+        smoothI[i] = np.mean(I[max(i - halfSize, 0) : min(i + halfSize + 1, len(I)) ]) #use average of range, min/max to avoid bound errors
+    return smoothI
+
+#get the smoothing of just the last point, window should be even
+def getSmoothEnd(I, window=7):
+    halfSize = int(window/2) #i.e. 3
+    return np.mean(I[ max(len(I) - 1 - halfSize, 0) :]) #mean from half window size elements to the end of the list
+
 #--------------------------------------------------------------------------
 #create the basic model matrices
 def getMatrix(S, I, R, D, nonLinVars):    
     sirdMatrix = np.zeros((len(S) - 1, 4, 4))
     nextIterMatrix = np.zeros((len(S) - 1, 4, 1)) #the S(t+1), I(t+1), ... matrix
-
+    
     pop = S+I+R+D #for normalizing I in feedback
-    shiftI = np.zeros(len(I))
-    shiftI[delay:] = I[:-delay]
-
+    
+    shiftI = getShift(I,R,D)
+    shiftI = getSmoothed(shiftI, window=7) #window average smoothing
+    
     #susceptible row, dS = 0
     sirdMatrix[:,0,0] = -(S[:-1] * I[:-1]) / (S[:-1] + I[:-1]) #beta0
     sirdMatrix[:,0,1] = -(S[:-1] * I[:-1]) / (S[:-1] + I[:-1]) * (1 / (1 + (nonLinVars[0]*shiftI[:-1]/pop[:-1])**nonLinVars[1] )) #beta1
@@ -62,25 +83,25 @@ def getLinVars(S, I, R, D, nonLinVars, graph=False):
     nu = getNu(I,D)
     gamma = getGamma(I,R)
     beta0, beta1 = getBeta(S,I,R,D, nonLinVars, gamma,nu)
-
+    
     linVars = [beta0, beta1, gamma, nu]
-
+    
     if(graph):
         fig, ax = plt.subplots(figsize=(18,8))
         ax.plot(getBetaTime(S,I,R,D, linVars, nonLinVars))
         return linVars, fig, ax
-
+    
     return linVars
 
 
 def getGamma(I, R):
     y = np.zeros((len(I)-1,1))
     x = np.zeros((len(I)-1,1))
-
+    
     # R(t+1) - R(t) = gamma*I(t)
     y[:,0] = R[1:] - R[:-1]
     x[:,0] = I[:-1]
-
+    
     #add weight decay
     T = len(I)-1
     for t in range(T):
@@ -92,11 +113,11 @@ def getGamma(I, R):
 def getNu(I, D):
     y = np.zeros((len(I)-1,1))
     x = np.zeros((len(I)-1,1))
-
+    
     # D(t+1) - D(t) = nu*I(t)
     y[:,0] = D[1:] - D[:-1]
     x[:,0] = I[:-1]
-
+    
     #add weight decay
     T = len(I)-1
     for t in range(T):
@@ -108,33 +129,34 @@ def getNu(I, D):
 def getBeta(S,I,R,D , nonLinVars, gamma, nu):
     y = np.zeros((2*(len(I)-1),1)) # 2 times length since every other row is for S' and every other is I'
     x = np.zeros((2*(len(I)-1),2))
-
+    
     #betaNonLin = [b2,b3]
     #dS = -beta * (SI/S+I)
     #dI = beta * (SI/S+I)
-
+    
     pop = S+I+R+D #for normalizing b1*I
-
-    shiftI = np.zeros(len(I))
-    shiftI[delay:] = I[:-delay]
-
+    
+    shiftI = getShift(I,R,D)
+    
+    shiftI = getSmoothed(shiftI, window=7) #window average smoothing
+    
     #S and I rows
     y[::2,  0] = (S[1:] - S[:-1]) #::2 is for skipping every other row (starts at 0)
     y[1::2, 0] = (I[1:] - I[:-1]) + gamma*I[:-1] + nu*I[:-1]
-
+    
     x[::2,  0] = -(S[:-1]*I[:-1]) / (S[:-1] + I[:-1]) #beta0
     x[1::2, 0] = (S[:-1]*I[:-1]) / (S[:-1] + I[:-1]) #beta0 
-
+    
     x[::2,  1] = -(S[:-1]*I[:-1]) / (S[:-1] + I[:-1]) * (1 / (1 + (nonLinVars[0]*shiftI[:-1]/pop[:-1])**nonLinVars[1] )) #beta1
     x[1::2, 1] = (S[:-1]*I[:-1]) / (S[:-1] + I[:-1]) * (1 / (1 + (nonLinVars[0]*shiftI[:-1]/pop[:-1])**nonLinVars[1] )) #beta1
-
+    
     if(betaUseDecay):
         #add weight decay
         T = len(I)-1
         for t in range(T):
             x[t*2:(t*2)+2] = x[t*2:(t*2)+2] * np.sqrt(weightDecay**(T - t))
             y[t*2:(t*2)+2] = y[t*2:(t*2)+2] * np.sqrt(weightDecay**(T - t))
-
+    
     betaVars = np.linalg.lstsq(x, y, rcond = None)[0].flatten() #solve for beta
     return betaVars[0], betaVars[1] #beta0, beta1
 #--------------------------------------------------------------------------
@@ -145,7 +167,7 @@ def getBeta(S,I,R,D , nonLinVars, gamma, nu):
 #find the error of the current parameters
 def getError(S, I, R, D, linVars, nonLinVars, regError=True): #the custom error function for SIRD    
     y, x = getMatrix(S, I, R, D, nonLinVars)
-
+    
     totalError = 0
     #see paper for optimization function
     T = len(y)
@@ -156,24 +178,24 @@ def getError(S, I, R, D, linVars, nonLinVars, regError=True): #the custom error 
             x[t,row] = x[t,row] * np.sqrt(weightDecay**(T-t))
 
         totalError = totalError + (np.linalg.norm((x[t] @ np.asarray(linVars)) - y[t].transpose(), ord=2)**2)
-
+ 
     #return (1.0/T) * np.linalg.norm((A @ params) - y.transpose(), ord=2)**2  + lamda*np.linalg.norm(params, ord=1)
     totalError = (1.0/T)*totalError #divide by timeframe
     if(regError):
         totalError = totalError + regularizer*np.linalg.norm(linVars, ord=1) #regularization error
-
+    
     return totalError
 #--------------------------------------------------------------------------
 
 def getBetaTime(S, I, R, D, linVars, nonLinVars): #calculate beta from b0, b1, b2, b3
     #beta = b0 + b1/(1+b2*I**b3)
-    pop = S+I+R+D
-
-    shiftI = np.zeros(len(I))
-    shiftI[delay:] = I[:-delay]
-
+    pop = (S+I+R+D)[0]
+    
+    shiftI = getShift(I,R,D)
+    shiftI = getSmoothed(shiftI, window=7) #window average smoothing
+    
     return (linVars[0] + (linVars[1] / (1 + (nonLinVars[0] * shiftI/pop)**nonLinVars[1] ) )) #beta over time, I/pop for normalization
-
+    
 
 
 #--------------------------------------------------------------------------
@@ -181,7 +203,7 @@ def getBetaTime(S, I, R, D, linVars, nonLinVars): #calculate beta from b0, b1, b
 
 #constraints should be in the format of [(b2min, b2max), (b3min b3max)]
 def gridNonLinVars(S,I,R,D, constraints, varResols): #solve for non linear vars, q, b1, b2, b3
-
+    
     #get the step distance needed for each variable
     #varSteps[:] = constraints[:][0] + (constraints[:][1] - constraints[:][0])/varResols[:]
     varSteps = []
@@ -189,17 +211,17 @@ def gridNonLinVars(S,I,R,D, constraints, varResols): #solve for non linear vars,
         varSteps.append(constraints[i][0] + (constraints[i][1] - constraints[i][0])/varResols[i]) #min + (max - min)/resol
         if(varSteps[-1] == 0):
             varSteps[-1] = 1 #avoids infinite loop and zero step movement
-
+            
 
     #let starting vals be known as best starting value
     #minVars = constraints[:][0]
     minVars = []
     for i in range(len(constraints)): #fill minVars with the minimum starting value
         minVars.append((constraints[i][0]))
-
+    
     linVars = getLinVars(S, I, R, D, minVars)
     minCost = getError(S, I, R, D, linVars, minVars) #the custom error function for SIRD
-
+    
     currVars = minVars.copy() #deep copy
     currCost = minCost
     #while the var isn't above it's max
@@ -211,7 +233,7 @@ def gridNonLinVars(S,I,R,D, constraints, varResols): #solve for non linear vars,
         if(currCost < minCost):
             minCost = currCost
             minVars = currVars.copy()
-
+    
         #handle iteration of variables without overflowing
         currVars[0] = currVars[0] + varSteps[0]
         varIndex = 0
@@ -223,7 +245,7 @@ def gridNonLinVars(S,I,R,D, constraints, varResols): #solve for non linear vars,
                     continueLoop = False
                     break
                 currVars[varIndex] = currVars[varIndex] + varSteps[varIndex] #iterate var        
-
+       
     linVars = getLinVars(S, I, R, D, minVars) #set lin vars according to the min nonlin vars
     return linVars, minVars #return vars and linVars
 
@@ -245,13 +267,13 @@ def solveAllVars(S, I, R, D, nonLinConstraints, nonLinResol, printOut=False):
 
 
 #--------------------------------------------------------------------------
-
-
-
-
+    
+    
+    
+    
 #--------------------------------------------------------------------------  
 def displayData(S,I,R,D, graphVals=[False,True,True,True]):
-
+    
     fig, ax = plt.subplots(figsize=(18,8))
     if(graphVals[0]):
         ax.plot(S, color="purple")
@@ -261,7 +283,7 @@ def displayData(S,I,R,D, graphVals=[False,True,True,True]):
         ax.plot(R, color="blue")
     if(graphVals[3]):
         ax.plot(D, color="black")
-
+        
     return fig, ax
 #--------------------------------------------------------------------------  
 
@@ -277,13 +299,13 @@ def calculateFuture(S,I,R,D, daysToPredict, params=None, nonLinParams=None):
         varRanges = [(0,5000), (0,10)]
         varResol = [100, 10]
         params, nonLinParams = solveAllVars(S,I,R,D, varRanges, varResol)
-
+    
     if(params==None): #nonLinParams are set but params aren't
         params=getLinVars(S,I,R,D, nonLinVars)
-
+        
     print("Non Lin Vars:", nonLinParams)
     print("Lin Vars:", params)
-
+    
     #set up matrices and starting info
     dt, X = getMatrix(S,I,R,D, nonLinParams)
 
@@ -292,7 +314,7 @@ def calculateFuture(S,I,R,D, daysToPredict, params=None, nonLinParams=None):
 
     xPredict[0:len(X)] = X
     dtPredict[0:len(dt)] = dt
-
+    
     SP = np.zeros(len(S) + daysToPredict)
     IP = np.zeros(len(I) + daysToPredict)
     RP = np.zeros(len(R) + daysToPredict)
@@ -302,22 +324,24 @@ def calculateFuture(S,I,R,D, daysToPredict, params=None, nonLinParams=None):
     IP[0:len(I)] = I
     RP[0:len(R)] = R
     DP[0:len(D)] = D
-
-
+    
+    shiftI = np.zeros(len(I) + daysToPredict)
+    shiftI[0:len(I)] = getShift(I,R,D)
+    
     T = len(I) - 1
     for t in range(T, T + daysToPredict): #go from last element in known list to end of prediction, see paper for method
         pop = SP[t] + IP[t] + RP[t] + DP[t] #for normalizing b2*I
-
-        shiftI = IP[t-delay] #the infected number shifted days ago
-
+        
+        shiftISmooth = getSmoothEnd(shiftI[:t+1], window=7) #window average smoothing
+        
         #populate the 5x5 matrix with parameters
         #susceptible row, dS = -(SI/S+I)
         xPredict[t,0,0] = -(SP[t] * IP[t]) / (SP[t] + IP[t]) #b0
-        xPredict[t,0,1] = -(SP[t] * IP[t]) / (SP[t] + IP[t]) * (1 / (1 + (nonLinParams[0]*shiftI/pop)**nonLinParams[1] )) #b1
+        xPredict[t,0,1] = -(SP[t] * IP[t]) / (SP[t] + IP[t]) * (1 / (1 + (nonLinParams[0]*shiftISmooth/pop)**nonLinParams[1] )) #b1
 
         #infected row, dA = B*(S*I / S + I)
         xPredict[t,1,0] = (SP[t] * IP[t]) / (SP[t] + IP[t]) #b0
-        xPredict[t,1,1] = (SP[t] * IP[t]) / (SP[t] + IP[t]) * (1 / (1 + (nonLinParams[0]*shiftI/pop)**nonLinParams[1] )) #b1
+        xPredict[t,1,1] = (SP[t] * IP[t]) / (SP[t] + IP[t]) * (1 / (1 + (nonLinParams[0]*shiftISmooth/pop)**nonLinParams[1] )) #b1
         xPredict[t,1,2] = -IP[t] #gamma
         xPredict[t,1,3] = -IP[t] #nu
 
@@ -329,44 +353,50 @@ def calculateFuture(S,I,R,D, daysToPredict, params=None, nonLinParams=None):
 
         #predict next iter matrix
         dtPredict[t,:,0] = (xPredict[t] @ params) 
-
+        
         #find next SIRD, based on dtPredict[t] (which is S(t+1) - S(t)) to predict S(t) (and so on)
         SP[t+1] = SP[t] + dtPredict[t,0,0]
         IP[t+1] = IP[t] + dtPredict[t,1,0]
         RP[t+1] = RP[t] + dtPredict[t,2,0]
         DP[t+1] = DP[t] + dtPredict[t,3,0]
         
-    for t in range(T):
-        pop = S[t] + I[t] + R[t] + D[t] #for normalizing b2*I
+        shiftI[t+1] = (IP+RP+DP)[t+1-delay] - (IP+RP+DP)[t-delay] #the new infected number shifted days ago, note using I(t) - I(t-1) for slope
+        
+        #find corrective error plotting
+        for t in range(T): #corrective error for graphing
+            pop = S[t] + I[t] + R[t] + D[t] #for normalizing b2*I
 
-        shiftI = IP[t-delay] #the infected number shifted days ago
+            shiftISmooth = getSmoothEnd(shiftI[:t+1], window=7) #window average smoothing
 
-        #populate the 5x5 matrix with parameters
-        #susceptible row, dS = -(SI/S+I)
-        xPredict[t,0,0] = -(S[t] * I[t]) / (S[t] + I[t]) #b0
-        xPredict[t,0,1] = -(S[t] * I[t]) / (S[t] + I[t]) * (1 / (1 + (nonLinParams[0]*shiftI/pop)**nonLinParams[1] )) #b1
+            #populate the 5x5 matrix with parameters
+            #susceptible row, dS = -(SI/S+I)
+            xPredict[t,0,0] = -(S[t] * I[t]) / (S[t] + I[t]) #b0
+            xPredict[t,0,1] = -(S[t] * I[t]) / (S[t] + I[t]) * (1 / (1 + (nonLinParams[0]*shiftISmooth/pop)**nonLinParams[1] )) #b1
 
-        #infected row, dA = B*(S*I / S + I)
-        xPredict[t,1,0] = (S[t] * I[t]) / (S[t] + I[t]) #b0
-        xPredict[t,1,1] = (S[t] * I[t]) / (S[t] + I[t]) * (1 / (1 + (nonLinParams[0]*shiftI/pop)**nonLinParams[1] )) #b1
-        xPredict[t,1,2] = -I[t] #gamma
-        xPredict[t,1,3] = -I[t] #nu
+            #infected row, dA = B*(S*I / S + I)
+            xPredict[t,1,0] =  (S[t] * I[t]) / (S[t] + I[t]) #b0
+            xPredict[t,1,1] =  (S[t] * I[t]) / (S[t] + I[t]) * (1 / (1 + (nonLinParams[0]*shiftISmooth/pop)**nonLinParams[1] )) #b1
+            xPredict[t,1,2] = -I[t] #gamma
+            xPredict[t,1,3] = -I[t] #nu
 
-        #recovered row
-        xPredict[t,2,2] = I[t] #gamma
+            #recovered row
+            xPredict[t,2,2] = I[t] #gamma
 
-        #dead row
-        xPredict[t,3,3] = I[t] #nu
+            #dead row
+            xPredict[t,3,3] = I[t] #nu
 
-        #predict next iter matrix
-        dtPredict[t,:,0] = (xPredict[t] @ params) 
+            #predict next iter matrix
+            dtPredict[t,:,0] = (xPredict[t] @ params) 
 
-        #find next SIRD, based on dtPredict[t] (which is S(t+1) - S(t)) to predict S(t) (and so on)
-        SP[t+1] = S[t] + dtPredict[t,0,0]
-        IP[t+1] = I[t] + dtPredict[t,1,0]
-        RP[t+1] = R[t] + dtPredict[t,2,0]
-        DP[t+1] = D[t] + dtPredict[t,3,0]
+            #find next SIRD, based on dtPredict[t] (which is S(t+1) - S(t)) to predict S(t) (and so on)
+            SP[t+1] = S[t] + dtPredict[t,0,0]
+            IP[t+1] = I[t] + dtPredict[t,1,0]
+            RP[t+1] = R[t] + dtPredict[t,2,0]
+            DP[t+1] = D[t] + dtPredict[t,3,0]
 
+            #shiftI[t] = (I+R+D)[t+1-delay] - (I+R+D)[t-delay] #the new infected number shifted days ago
+    
+    
     return SP, IP, RP, DP
 
 
@@ -389,16 +419,17 @@ def predictFuture(S,I,R,D, daysToPredict, linVars=None, nonLinVars=None, graphVa
     if(graphVals[3]):
         ax.plot(D, color='black', label='dead')
         ax.plot(pD, color='black', label='dead', linestyle='dashed')
-
+    
     ax.axvline(len(S), color='black', linestyle='dashed')
-        
+    
+    
     return pS, pI, pR, pD, fig, ax #for easy manipulation/graphing
 
-
+    
 #predict days that are known for testing purposes, predicts the end portion of the given data
 def predictMatch(S,I,R,D, daysToPredict, linVars=None, nonLinVars=None, graphVals=[False,True,True,True]):
     pS, pI, pR, pD = calculateFuture(S[0:-daysToPredict], I[0:-daysToPredict], R[0:-daysToPredict], D[0:-daysToPredict], daysToPredict, params=linVars, nonLinParams=nonLinVars)
-
+    
     #plot actual and predicted values
     fig, ax = plt.subplots(figsize=(18,8))
     if(graphVals[0]):
@@ -413,9 +444,13 @@ def predictMatch(S,I,R,D, daysToPredict, linVars=None, nonLinVars=None, graphVal
     if(graphVals[3]):
         ax.plot(D, color='black', label='dead')
         ax.plot(pD, color='black', label='dead', linestyle='dashed')
-
+      
     ax.axvline(len(S)-daysToPredict, color='black', linestyle='dashed')
     
     return pS, pI, pR, pD, fig, ax #for easy manipulation
 
 #---------------------------------------------------------
+
+
+
+

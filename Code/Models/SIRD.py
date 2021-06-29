@@ -219,6 +219,7 @@ def calculateFuture(S,I,R,D, daysToPredict, params=None):
     DP[0:len(D)] = D
 
     T = len(I) - 1
+    
     for t in range(T, T + daysToPredict): #go from last element in known list to end of prediction, see paper for method
         #populate the 5x5 matrix with parameters
         #susceptible row, dS = -(SI/S+I)
@@ -244,6 +245,32 @@ def calculateFuture(S,I,R,D, daysToPredict, params=None):
         RP[t+1] = RP[t] + dtPredict[t,2,0]
         DP[t+1] = DP[t] + dtPredict[t,3,0]
     
+    #find corrective plotting error
+    for t in range(T): #go from last element in known list to end of prediction, see paper for method
+        #populate the 5x5 matrix with parameters
+        #susceptible row, dS = -(SI/S+I)
+        xPredict[t,0,0] = -(S[t] * I[t]) / (S[t] + I[t])
+
+        #infected row, dA = B*(S*I / S + I)
+        xPredict[t,1,0] = (S[t] * I[t]) / (S[t] + I[t]) #b0
+        xPredict[t,1,1] = -I[t] #gamma
+        xPredict[t,1,2] = -I[t] #nu
+
+        #recovered row
+        xPredict[t,2,1] = I[t] #gamma
+
+        #dead row
+        xPredict[t,3,2] = I[t] #nu
+
+        #predict next iter matrix
+        dtPredict[t,:,0] = (xPredict[t] @ params) 
+        
+        #find next SIRD, based on dtPredict[t] (which is S(t+1) - S(t)) to predict S(t) (and so on)
+        SP[t+1] = S[t] + dtPredict[t,0,0]
+        IP[t+1] = I[t] + dtPredict[t,1,0]
+        RP[t+1] = R[t] + dtPredict[t,2,0]
+        DP[t+1] = D[t] + dtPredict[t,3,0]
+    
     return SP, IP, RP, DP
 
 
@@ -267,6 +294,8 @@ def predictFuture(S,I,R,D, daysToPredict, linVars=None, graphVals=[False,True,Tr
         ax.plot(D, color='black', label='dead')
         ax.plot(pD, color='black', label='dead', linestyle='dashed')
       
+    ax.axvline(len(S), color='black', linestyle='dashed')
+    
     return pS, pI, pR, pD, fig, ax #for easy manipulation/graphing
 
     
@@ -289,6 +318,8 @@ def predictMatch(S,I,R,D, daysToPredict, linVars=None, graphVals=[False,True,Tru
         ax.plot(D, color='black', label='dead')
         ax.plot(pD, color='black', label='dead', linestyle='dashed')
       
+    ax.axvline(len(S)-daysToPredict, color='black', linestyle='dashed')
+    
     return pS, pI, pR, pD, fig, ax #for easy manipulation
 
 #---------------------------------------------------------

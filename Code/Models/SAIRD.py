@@ -22,9 +22,10 @@ weightDecay = 1
 # A(t) = I_total(t+shift) - I_total(t)
 
 def getAsympt(I,R,D, shift=10): #assume the current infected population was the asymptomatic population shifted days ago
-    totalI = I + R + D
+    #totalI = I + R + D
     
-    A = totalI[shift:] - totalI[:-shift] #I_total(t) - I_total(t+shift)
+    #A = totalI[shift:] - totalI[:-shift] #I_total(t) - I_total(t+shift)
+    A = I[shift:]
     #no definition of A on range t-shift to end, so returns a smaller size than the given I, R, D
     
     return A
@@ -295,6 +296,37 @@ def calculateFuture(S,A,I,R,D, daysToPredict, params=None):
         IP[t+1] = IP[t] + dtPredict[t,2,0]
         RP[t+1] = RP[t] + dtPredict[t,3,0]
         DP[t+1] = DP[t] + dtPredict[t,4,0]
+        
+    for t in range(T): #individual day error plotting
+        #populate the 5x5 matrix with parameters
+        #susceptible row, dS = -(SI/S+I)
+        xPredict[t,0,0] = -(S[t] * A[t]) / (S[t] + A[t])
+
+        #asymptomatic row
+        xPredict[t,1,0] = (S[t] * A[t]) / (S[t] + A[t])
+        xPredict[t,1,1] = -A[t] #kappa
+        
+        #infected row, dI = kappa*A - I*gamma - nu*I
+        xPredict[t,2,1] = A[t] #kappa
+        xPredict[t,2,2] = -I[t] #gamma
+        xPredict[t,2,3] = -I[t] #nu
+
+        #recovered row
+        xPredict[t,3,2] = I[t] #gamma
+
+        #dead row
+        xPredict[t,4,3] = I[t] #nu
+
+        #predict next iter matrix
+        dtPredict[t,:,0] = (xPredict[t] @ params) 
+        
+        #find next SIRD, based on dtPredict[t] (which is S(t+1) - S(t)) to predict S(t) (and so on)
+        SP[t+1] = S[t] + dtPredict[t,0,0]
+        AP[t+1] = A[t] + dtPredict[t,1,0]
+        IP[t+1] = I[t] + dtPredict[t,2,0]
+        RP[t+1] = R[t] + dtPredict[t,3,0]
+        DP[t+1] = D[t] + dtPredict[t,4,0]
+    
     
     return SP, AP, IP, RP, DP
 
@@ -322,6 +354,8 @@ def predictFuture(S,A,I,R,D, daysToPredict, linVars=None, graphVals=[False,True,
         ax.plot(D, color='black', label='dead')
         ax.plot(pD, color='black', label='dead', linestyle='dashed')
       
+    ax.axvline(len(S), color='black', linestyle='dashed')
+    
     return pS, pA, pI, pR, pD, fig, ax #for easy manipulation/graphing
 
     
@@ -347,6 +381,8 @@ def predictMatch(S,A,I,R,D, daysToPredict, linVars=None, graphVals=[False,True,T
         ax.plot(D, color='black', label='dead')
         ax.plot(pD, color='black', label='dead', linestyle='dashed')
       
+    ax.axvline(len(S)-daysToPredict, color='black', linestyle='dashed')
+    
     return pS, pA, pI, pR, pD, fig, ax #for easy manipulation/graphing
 
 #---------------------------------------------------------
