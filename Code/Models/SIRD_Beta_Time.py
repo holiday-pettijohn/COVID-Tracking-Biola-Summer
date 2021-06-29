@@ -1,11 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-#this model is for the constant parameter version of SIRD
+#this model is for the time varying beta version of SIRD
 # S' = -beta * (SI/S+I)
 # I' = beta * (SI/S+I) - gamma*I - nu*I
 # R' = gamma*I
 # D' = nu*I
+
+#note that linVars is in the format of [beta, gamma, nu], where gamma and new are floats, and beta is a list
 
 #--------------------------------------------------------------------------
 #global variables used for many functions
@@ -45,10 +47,16 @@ def getMatrix(S, I, R, D):
 
 #--------------------------------------------------------------------------
 #solve for parameters using weight decay and solving row by row
-def getLinVars(S, I, R, D):
+def getLinVars(S, I, R, D, graph=False):
     nu = getNu(I,D)
     gamma = getGamma(I,R)
     beta = getBeta(S,I,gamma,nu)
+    
+    if(graph):
+        fig, ax = plt.subplots(figsize=(18,8))
+        ax.plot(beta, color="red")
+        
+        return [beta, gamma, nu], fig, ax
     
     return [beta, gamma, nu]
 
@@ -61,12 +69,14 @@ def getGamma(I, R):
     y[:,0] = R[1:] - R[:-1]
     x[:,0] = I[:-1]
 
+    
     #add weight decay
     T = len(I)-1
     for t in range(T):
         y[t] = y[t] * np.sqrt(weightDecay**(T-t))
         x[t] = x[t] * np.sqrt(weightDecay**(T-t))
-    
+        
+        
     return np.linalg.lstsq(x, y, rcond = None)[0].flatten()[0] #solve for gamma
 
 def getNu(I, D):
@@ -76,36 +86,34 @@ def getNu(I, D):
     # D(t+1) - D(t) = nu*I(t)
     y[:,0] = D[1:] - D[:-1]
     x[:,0] = I[:-1]
-
+    
     #add weight decay
     T = len(I)-1
     for t in range(T):
         y[t] = y[t] * np.sqrt(weightDecay**(T-t))
         x[t] = x[t] * np.sqrt(weightDecay**(T-t))
-    
+
     return np.linalg.lstsq(x, y, rcond = None)[0].flatten()[0] #solve for nu
 
 def getBeta(S, I, gamma, nu):
-    y = np.zeros((2*(len(I)-1),1)) # 2 times length since every other row is for S' and every other is I'
-    x = np.zeros((2*(len(I)-1),1))
+    y = np.zeros((len(I)-1,2,1))
+    x = np.zeros((len(I)-1,2,1)) 
+    
+    beta = np.zeros(len(I) - 1)
     
     #betaNonLin = [b2,b3]
     #dS = -beta * (SI/S+I)
-    #dI = beta * (SI/S+I)\
+    #dI = beta * (SI/S+I)
+    y[:,0,0] = (S[1:] - S[:-1]) #s row
+    y[:,1,0] = (I[1:] - I[:-1]) + gamma*I[:-1] + nu*I[:-1] #i row
     
-    y[::2,  0] = (S[1:] - S[:-1]) #::2 is for skipping every other row (starts at 0)
-    y[1::2, 0] = (I[1:] - I[:-1]) + gamma*I[:-1] + nu*I[:-1]
+    x[:,0,0] = -(S[:-1]*I[:-1]) / (S[:-1] + I[:-1])
+    x[:,1,0] = (S[:-1]*I[:-1]) / (S[:-1] + I[:-1])
     
-    x[::2,  0] = -(S[:-1]*I[:-1]) / (S[:-1] + I[:-1])
-    x[1::2, 0] = (S[:-1]*I[:-1]) / (S[:-1] + I[:-1]) 
+    for t in range(len(y)):
+        beta[t] = np.linalg.lstsq(x[t], y[t], rcond = None)[0].flatten()[0]
     
-    #add weight decay
-    T = len(I)-1
-    for t in range(T):
-        x[t*2:(t*2)+2] = x[t*2:(t*2)+2] * np.sqrt(weightDecay**(T - t))
-        y[t*2:(t*2)+2] = y[t*2:(t*2)+2] * np.sqrt(weightDecay**(T - t))
-    
-    return np.linalg.lstsq(x, y, rcond = None)[0].flatten()[0] #solve for beta
+    return beta #solve for beta
 #--------------------------------------------------------------------------
 
 
@@ -119,12 +127,14 @@ def getError(S, I, R, D, linVars, regError=True): #the custom error function for
     #see paper for optimization function
     T = len(y)
     for t in range(T):
+        linVarT = [linVars[0][t], linVars[1], linVars[2]]
+        
         #add weight decay
         y[t] = y[t] * np.sqrt(weightDecay**(T-t))
         for row in range(len(x[t])):
             x[t,row] = x[t,row] * np.sqrt(weightDecay**(T-t))
 
-        totalError = totalError + (np.linalg.norm((x[t] @ np.asarray(linVars)) - y[t].transpose(), ord=2)**2)
+        totalError = totalError + (np.linalg.norm((x[t] @ np.asarray(linVarT)) - y[t].transpose(), ord=2)**2)
  
     #return (1.0/T) * np.linalg.norm((A @ params) - y.transpose(), ord=2)**2  + lamda*np.linalg.norm(params, ord=1)
     totalError = (1.0/T)*totalError #divide by timeframe
@@ -197,6 +207,14 @@ def displayData(S,I,R,D, graphVals=[False,True,True,True]):
 def calculateFuture(S,I,R,D, daysToPredict, params=None):
     if(params==None):
         params=getLinVars(S,I,R,D)
+        
+    #average out final days (weighted average) instead of just using the last day
+    betaTime = params[0]
+    beta = betaTime[0]
+    for i in range(1,len(betaTime)):
+        beta = beta*.5 + betaTime[i]*.5 #weighted so last day is 50%, 2nd to last is 25% and so 
+    params[0] = beta
+    
     print("Lin Vars:", params)
     
     #set up matrices and starting info

@@ -2,9 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 #this model is for the constant parameter version of SIRD
-# S' = -beta * (SI/S+I)
+# S' = -beta * (SI/S+I) - V'*S/S+R
 # I' = beta * (SI/S+I) - gamma*I - nu*I
-# R' = gamma*I
+# R' = gamma*I - V'*R/S+R
 # D' = nu*I
 
 #--------------------------------------------------------------------------
@@ -13,9 +13,33 @@ regularizer = 0
 weightDecay = 1
 #--------------------------------------------------------------------------
 
+
+#normal load function but also return vaccinations
+def loadData(filename):
+    csvfile=open(filename, newline='', encoding='UTF-8')
+    rd = csv.reader(csvfile, delimiter=',')
+    data=[]
+    for lv in rd: #generating the data matrix
+        data.append(lv)
+    header = data[0] #get the labels
+    infectionData=(data[1:]) #data without the labels
+    infectionData = np.array(infectionData)
+    dates = infectionData[:,header.index("Dates")]
+    infected = infectionData[:,header.index("Infected")]
+    recovered = infectionData[:,header.index("Recovered")]
+    deaths = infectionData[:,header.index("Deaths")]
+    vacc = infectionData[:,header.index("Vaccinated")]
+    vacc = vacc.astype(float)
+    deaths = deaths.astype(float)
+    recovered = recovered.astype(float)
+    infected = infected.astype(float)
+    return dates, infected, recovered, deaths, vacc
+
+
+
 #--------------------------------------------------------------------------
 #create the basic model matrices
-def getMatrix(S, I, R, D):    
+def getMatrix(S, I, R, D, V):    
     sirdMatrix = np.zeros((len(S) - 1, 4, 3))
     nextIterMatrix = np.zeros((len(S) - 1, 4, 1)) #the S(t+1), I(t+1), ... matrix
     
@@ -34,9 +58,9 @@ def getMatrix(S, I, R, D):
     sirdMatrix[:,3,2] = I[:-1] #nu
 
     #populate the S(t+1), I(t+1), ... matrix
-    nextIterMatrix[:,0,0] = S[1:] - S[:-1]
+    nextIterMatrix[:,0,0] = S[1:] - S[:-1] + ( (V[1:] - V[:-1]) * S[:-1] / (S[:-1] + R[:-1]) ) #V'S/S+R
     nextIterMatrix[:,1,0] = I[1:] - I[:-1]
-    nextIterMatrix[:,2,0] = R[1:] - R[:-1]
+    nextIterMatrix[:,2,0] = R[1:] - R[:-1] + ( (V[1:] - V[:-1]) * R[:-1] / (S[:-1] + R[:-1]) ) #V'R/S+R
     nextIterMatrix[:,3,0] = D[1:] - D[:-1]
 
     return nextIterMatrix, sirdMatrix
@@ -45,20 +69,20 @@ def getMatrix(S, I, R, D):
 
 #--------------------------------------------------------------------------
 #solve for parameters using weight decay and solving row by row
-def getLinVars(S, I, R, D):
+def getLinVars(S, I, R, D, V):
     nu = getNu(I,D)
-    gamma = getGamma(I,R)
-    beta = getBeta(S,I,gamma,nu)
+    gamma = getGamma(S,I,R, V)
+    beta = getBeta(S,I,R,V, gamma,nu)
     
     return [beta, gamma, nu]
 
 
-def getGamma(I, R):
+def getGamma(S, I, R, V):
     y = np.zeros((len(I)-1,1))
     x = np.zeros((len(I)-1,1))
     
     # R(t+1) - R(t) = gamma*I(t)
-    y[:,0] = R[1:] - R[:-1]
+    y[:,0] = R[1:] - R[:-1] + ( (V[1:] - V[:-1]) * R[:-1] / (S[:-1] + R[:-1]) ) #V'R/S+R
     x[:,0] = I[:-1]
 
     #add weight decay
@@ -85,7 +109,7 @@ def getNu(I, D):
     
     return np.linalg.lstsq(x, y, rcond = None)[0].flatten()[0] #solve for nu
 
-def getBeta(S, I, gamma, nu):
+def getBeta(S, I, R, V, gamma, nu):
     y = np.zeros((2*(len(I)-1),1)) # 2 times length since every other row is for S' and every other is I'
     x = np.zeros((2*(len(I)-1),1))
     
@@ -93,7 +117,7 @@ def getBeta(S, I, gamma, nu):
     #dS = -beta * (SI/S+I)
     #dI = beta * (SI/S+I)\
     
-    y[::2,  0] = (S[1:] - S[:-1]) #::2 is for skipping every other row (starts at 0)
+    y[::2,  0] = (S[1:] - S[:-1]) + ( (V[1:] - V[:-1]) * S[:-1] / (S[:-1] + R[:-1]) ) #::2 is for skipping every other row 
     y[1::2, 0] = (I[1:] - I[:-1]) + gamma*I[:-1] + nu*I[:-1]
     
     x[::2,  0] = -(S[:-1]*I[:-1]) / (S[:-1] + I[:-1])
@@ -112,8 +136,8 @@ def getBeta(S, I, gamma, nu):
 
 #--------------------------------------------------------------------------
 #find the error of the current parameters
-def getError(S, I, R, D, linVars, regError=True): #the custom error function for SIRD    
-    y, x = getMatrix(S, I, R, D)
+def getError(S, I, R, D, V, linVars, regError=True): #the custom error function for SIRD    
+    y, x = getMatrix(S, I, R, D, V)
     
     totalError = 0
     #see paper for optimization function
@@ -137,8 +161,8 @@ def getError(S, I, R, D, linVars, regError=True): #the custom error function for
 
 #--------------------------------------------------------------------------
 #solve for q by gridding
-def getQ(I, R, D, pop, qMax = 1, resol=100, graph=False):
-    qMin = max((I + R + D)/pop)
+def getQ(I, R, D, V, pop, qMax = 1, resol=100, graph=False):
+    qMin = max((I + R + D + V)/pop)
     
     qList = np.zeros(resol)
     for i in range(resol):
@@ -146,15 +170,16 @@ def getQ(I, R, D, pop, qMax = 1, resol=100, graph=False):
         
     errorList = [] #find the error for each calculated value of q
     for q in qList: #check eeach value of q
-        S = q*pop - I - R - D
+        S = q*pop - I - R - D - V
         #normalize so that S+I+R+D = 1, this allows errors to be consistant between different q values
         S = S/(q*pop)
         I = I/(q*pop)
         R = R/(q*pop)
-        D = D/(q*pop)      
+        D = D/(q*pop)  
+        V = V/(q*pop)
         
-        linVars = getLinVars(S,I,R,D)
-        errorList.append(getError(S,I,R,D, linVars, regError=False)) #add errror, don't do a regularization error
+        linVars = getLinVars(S,I,R,D, V)
+        errorList.append(getError(S,I,R,D, V, linVars, regError=False)) #add errror, don't do a regularization error
     
     bestQIndex = 0
     for i in range(resol):
@@ -170,7 +195,7 @@ def getQ(I, R, D, pop, qMax = 1, resol=100, graph=False):
 #--------------------------------------------------------------------------    
 
 #--------------------------------------------------------------------------  
-def displayData(S,I,R,D, graphVals=[False,True,True,True]):
+def displayData(S,I,R,D,V, graphVals=[False,True,True,True,True]):
     
     fig, ax = plt.subplots(figsize=(18,8))
     if(graphVals[0]):
@@ -181,6 +206,8 @@ def displayData(S,I,R,D, graphVals=[False,True,True,True]):
         ax.plot(R, color="blue")
     if(graphVals[3]):
         ax.plot(D, color="black")
+    if(graphVals[4]):
+        ax.plot(V, color="green")
         
     return fig, ax
 #--------------------------------------------------------------------------  
@@ -194,7 +221,8 @@ def displayData(S,I,R,D, graphVals=[False,True,True,True]):
 #------------------------------------------------------------------
 #prediction functions
 #predict the next some days using constant parameters, q and params will be calculated if not set, uses smoothing method  from paper
-def calculateFuture(S,I,R,D, daysToPredict, params=None):
+#note that the V given should be equal to len(S) + daysToPredict + 1
+def calculateFuture(S,I,R,D,V, daysToPredict, params=None):
     if(params==None):
         params=getLinVars(S,I,R,D)
     print("Lin Vars:", params)
@@ -239,9 +267,9 @@ def calculateFuture(S,I,R,D, daysToPredict, params=None):
         dtPredict[t,:,0] = (xPredict[t] @ params) 
         
         #find next SIRD, based on dtPredict[t] (which is S(t+1) - S(t)) to predict S(t) (and so on)
-        SP[t+1] = SP[t] + dtPredict[t,0,0]
+        SP[t+1] = SP[t] + dtPredict[t,0,0] + ( (V[t+1] - V[t]) * S[t] / (S[t] + R[t]) )
         IP[t+1] = IP[t] + dtPredict[t,1,0]
-        RP[t+1] = RP[t] + dtPredict[t,2,0]
+        RP[t+1] = RP[t] + dtPredict[t,2,0] + ( (V[t+1] - V[t]) * R[t] / (S[t] + R[t]) )
         DP[t+1] = DP[t] + dtPredict[t,3,0]
     
     return SP, IP, RP, DP
@@ -249,8 +277,8 @@ def calculateFuture(S,I,R,D, daysToPredict, params=None):
 
 
 #predict future days that are not known
-def predictFuture(S,I,R,D, daysToPredict, linVars=None, graphVals=[False,True,True,True]):
-    pS, pI, pR, pD = calculateFuture(S,I,R,D, daysToPredict, params=linVars)
+def predictFuture(S,I,R,D,V, daysToPredict, linVars=None, graphVals=[False,True,True,True,True]):
+    pS, pI, pR, pD = calculateFuture(S,I,R,D,V, daysToPredict, params=linVars)
 
     #plot actual and predicted values
     fig, ax = plt.subplots(figsize=(18,8))
@@ -266,13 +294,15 @@ def predictFuture(S,I,R,D, daysToPredict, linVars=None, graphVals=[False,True,Tr
     if(graphVals[3]):
         ax.plot(D, color='black', label='dead')
         ax.plot(pD, color='black', label='dead', linestyle='dashed')
+    if(graphVals[4]):
+        ax.plot(V, color='green', label="vaccinations")
       
     return pS, pI, pR, pD, fig, ax #for easy manipulation/graphing
 
     
 #predict days that are known for testing purposes, predicts the end portion of the given data
-def predictMatch(S,I,R,D, daysToPredict, linVars=None, graphVals=[False,True,True,True]):
-    pS, pI, pR, pD = calculateFuture(S[0:-daysToPredict], I[0:-daysToPredict], R[0:-daysToPredict], D[0:-daysToPredict], daysToPredict, params=linVars)
+def predictMatch(S,I,R,D,V, daysToPredict, linVars=None, graphVals=[False,True,True,True,True]):
+    pS, pI, pR, pD = calculateFuture(S[0:-daysToPredict], I[0:-daysToPredict], R[0:-daysToPredict], D[0:-daysToPredict], V, daysToPredict, params=linVars)
     
     #plot actual and predicted values
     fig, ax = plt.subplots(figsize=(18,8))
@@ -288,6 +318,8 @@ def predictMatch(S,I,R,D, daysToPredict, linVars=None, graphVals=[False,True,Tru
     if(graphVals[3]):
         ax.plot(D, color='black', label='dead')
         ax.plot(pD, color='black', label='dead', linestyle='dashed')
+    if(graphVals[4]):
+        ax.plot(V, color='green', label="vaccinations")
       
     return pS, pI, pR, pD, fig, ax #for easy manipulation
 
