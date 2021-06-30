@@ -32,6 +32,9 @@ dates, infectRaw, recovRaw, deadRaw = process.loadData(pathc + filename)
 #infectRaw = process.getCurrentInfect(infectRaw, recovRaw, deadRaw)
 
 pop = 60000000
+#pop = 40000000 #CA
+
+
 
 skipDays = 35
 numDays = len(infectRaw) - 30 #just to get initial beginning data
