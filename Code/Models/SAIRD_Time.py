@@ -57,8 +57,8 @@ def getLinVars(S, A, I, R, D, graph=False):
     
     if(graph):
         fig, ax = plt.subplots(4, 1, figsize=(18,8))
-        ax[0].plot(kappa, color="orange")
-        ax[1].plot(beta, color="red")
+        ax[0].plot(beta, color="red")
+        ax[1].plot(kappa, color="orange")
         ax[2].plot(gamma, color="blue")
         ax[3].plot(nu, color="black")
         ax[0].set_ylim(0)
