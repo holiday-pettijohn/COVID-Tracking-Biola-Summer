@@ -22,10 +22,10 @@ weightDecay = 1
 # A(t) = I_total(t+shift) - I_total(t)
 
 def getAsympt(I,R,D, shift=10): #assume the current infected population was the asymptomatic population shifted days ago
-    totalI = I + R + D
+    #totalI = I + R + D
     
-    A = totalI[shift:] - totalI[:-shift] #I_total(t) - I_total(t+shift)
-    #A = I[shift:]
+    #A = totalI[shift:] - totalI[:-shift] #I_total(t) - I_total(t+shift)
+    A = I[shift:]
     #no definition of A on range t-shift to end, so returns a smaller size than the given I, R, D
     
     return A
@@ -136,7 +136,7 @@ def getBeta(S, A, I, kappa):
     #dI = beta * (SI/S+I) - kappa*A
     
     y[::2,  0] = (S[1:] - S[:-1]) #::2 is for skipping every other row (starts at 0)
-    y[1::2, 0] = (I[1:] - I[:-1]) + kappa*A[:-1]
+    y[1::2, 0] = (A[1:] - A[:-1]) + kappa*A[:-1]
    
     x[::2,  0] = -(S[:-1]*A[:-1]) / (S[:-1] + A[:-1])
     x[1::2, 0] = (S[:-1]*A[:-1]) / (S[:-1] + A[:-1]) 
