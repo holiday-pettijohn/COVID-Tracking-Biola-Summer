@@ -276,9 +276,12 @@ def calculateFuture(S,I,R,D, daysToPredict, params=None):
 
 
 #predict future days that are not known
-def predictFuture(S,I,R,D, daysToPredict, linVars=None, graphVals=[False,True,True,True]):
+def predictFuture(S,I,R,D, daysToPredict, linVars=None, graphVals=[False,True,True,True], graph=True):
     pS, pI, pR, pD = calculateFuture(S,I,R,D, daysToPredict, params=linVars)
 
+    if(graph==False):
+        return pS, pI, pR, pD
+    
     #plot actual and predicted values
     fig, ax = plt.subplots(figsize=(18,8))
     if(graphVals[0]):
@@ -300,8 +303,11 @@ def predictFuture(S,I,R,D, daysToPredict, linVars=None, graphVals=[False,True,Tr
 
     
 #predict days that are known for testing purposes, predicts the end portion of the given data
-def predictMatch(S,I,R,D, daysToPredict, linVars=None, graphVals=[False,True,True,True]):
+def predictMatch(S,I,R,D, daysToPredict, linVars=None, graphVals=[False,True,True,True], graph=True):
     pS, pI, pR, pD = calculateFuture(S[0:-daysToPredict], I[0:-daysToPredict], R[0:-daysToPredict], D[0:-daysToPredict], daysToPredict, params=linVars)
+    
+    if(graph==False):
+        return pS, pI, pR, pD
     
     #plot actual and predicted values
     fig, ax = plt.subplots(figsize=(18,8))
