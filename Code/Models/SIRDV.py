@@ -1,6 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+
+import csv
+
 #this model is for the constant parameter version of SIRD
 # S' = -beta * (SI/S+I) - V'*S/S+R
 # I' = beta * (SI/S+I) - gamma*I - nu*I
@@ -13,6 +16,22 @@ regularizer = 0
 weightDecay = 1
 #--------------------------------------------------------------------------
 
+
+def approxSusceptRecov(S,R,V):
+    vDiff = np.diff(V)
+    vDiff = vDiff.tolist()
+    vDiff.append(vDiff[-1])
+    vDiff = np.asarray(vDiff)
+    
+    for t in range(0, len(S)): 
+
+        subS = (vDiff[t] * S[t]) / (S[t] + R[t])
+        subR = (vDiff[t] * R[t]) / (S[t] + R[t])
+
+        for i in range(t,len(S)):
+            S[i] -= subS
+            R[i] -= subR
+    return S,R
 
 #normal load function but also return vaccinations
 def loadData(filename):
@@ -224,11 +243,11 @@ def displayData(S,I,R,D,V, graphVals=[False,True,True,True,True]):
 #note that the V given should be equal to len(S) + daysToPredict + 1
 def calculateFuture(S,I,R,D,V, daysToPredict, params=None):
     if(params==None):
-        params=getLinVars(S,I,R,D)
+        params=getLinVars(S,I,R,D,V[:len(S)])
     print("Lin Vars:", params)
     
     #set up matrices and starting info
-    dt, X = getMatrix(S,I,R,D)
+    dt, X = getMatrix(S,I,R,D,V[:len(S)])
 
     xPredict = np.zeros((len(X) + daysToPredict, np.shape(X)[1], np.shape(X)[2]))
     dtPredict = np.zeros((len(dt) + daysToPredict, np.shape(dt)[1], 1))
@@ -245,7 +264,7 @@ def calculateFuture(S,I,R,D,V, daysToPredict, params=None):
     IP[0:len(I)] = I
     RP[0:len(R)] = R
     DP[0:len(D)] = D
-
+    
     T = len(I) - 1
     for t in range(T, T + daysToPredict): #go from last element in known list to end of prediction, see paper for method
         #populate the 5x5 matrix with parameters
@@ -267,19 +286,47 @@ def calculateFuture(S,I,R,D,V, daysToPredict, params=None):
         dtPredict[t,:,0] = (xPredict[t] @ params) 
         
         #find next SIRD, based on dtPredict[t] (which is S(t+1) - S(t)) to predict S(t) (and so on)
-        SP[t+1] = SP[t] + dtPredict[t,0,0] + ( (V[t+1] - V[t]) * S[t] / (S[t] + R[t]) )
+        SP[t+1] = SP[t] + dtPredict[t,0,0] - ( (V[t+1] - V[t]) * SP[t] / (SP[t] + RP[t]) )
         IP[t+1] = IP[t] + dtPredict[t,1,0]
-        RP[t+1] = RP[t] + dtPredict[t,2,0] + ( (V[t+1] - V[t]) * R[t] / (S[t] + R[t]) )
+        RP[t+1] = RP[t] + dtPredict[t,2,0] - ( (V[t+1] - V[t]) * RP[t] / (SP[t] + RP[t]) )
         DP[t+1] = DP[t] + dtPredict[t,3,0]
+        
+    for t in range(0, T): #go from last element in known list to end of prediction, see paper for method
+        #populate the 5x5 matrix with parameters
+        #susceptible row, dS = -(SI/S+I)
+        xPredict[t,0,0] = -(S[t] * I[t]) / (S[t] + I[t])
+
+        #infected row, dA = B*(S*I / S + I)
+        xPredict[t,1,0] = (S[t] * I[t]) / (S[t] + I[t]) #b0
+        xPredict[t,1,1] = -I[t] #gamma
+        xPredict[t,1,2] = -I[t] #nu
+
+        #recovered row
+        xPredict[t,2,1] = I[t] #gamma
+
+        #dead row
+        xPredict[t,3,2] = I[t] #nu
+
+        #predict next iter matrix
+        dtPredict[t,:,0] = (xPredict[t] @ params) 
+        
+        #find next SIRD, based on dtPredict[t] (which is S(t+1) - S(t)) to predict S(t) (and so on)
+        SP[t+1] = S[t] + dtPredict[t,0,0] - ( (V[t+1] - V[t]) * S[t] / (S[t] + R[t]) )
+        IP[t+1] = I[t] + dtPredict[t,1,0]
+        RP[t+1] = R[t] + dtPredict[t,2,0] - ( (V[t+1] - V[t]) * R[t] / (S[t] + R[t]) )
+        DP[t+1] = D[t] + dtPredict[t,3,0]
     
     return SP, IP, RP, DP
 
 
 
 #predict future days that are not known
-def predictFuture(S,I,R,D,V, daysToPredict, linVars=None, graphVals=[False,True,True,True,True]):
+def predictFuture(S,I,R,D,V, daysToPredict, linVars=None, graphVals=[False,True,True,True,True], graph=True):
     pS, pI, pR, pD = calculateFuture(S,I,R,D,V, daysToPredict, params=linVars)
 
+    if(not graph):
+        return pS, pI, pR, pD
+    
     #plot actual and predicted values
     fig, ax = plt.subplots(figsize=(18,8))
     if(graphVals[0]):
@@ -301,8 +348,11 @@ def predictFuture(S,I,R,D,V, daysToPredict, linVars=None, graphVals=[False,True,
 
     
 #predict days that are known for testing purposes, predicts the end portion of the given data
-def predictMatch(S,I,R,D,V, daysToPredict, linVars=None, graphVals=[False,True,True,True,True]):
+def predictMatch(S,I,R,D,V, daysToPredict, linVars=None, graphVals=[False,True,True,True,True], graph=True):
     pS, pI, pR, pD = calculateFuture(S[0:-daysToPredict], I[0:-daysToPredict], R[0:-daysToPredict], D[0:-daysToPredict], V, daysToPredict, params=linVars)
+    
+    if(not graph):
+        return pS, pI, pR, pD
     
     #plot actual and predicted values
     fig, ax = plt.subplots(figsize=(18,8))
