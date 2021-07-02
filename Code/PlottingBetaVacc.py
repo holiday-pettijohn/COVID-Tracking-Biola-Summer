@@ -169,12 +169,13 @@ sird_fd.delay = 14
 sirdv_fd.delay = 14
 #setup params
 
-#linVarsV= [0.05755465615737061, 0.05087502982088522, 0.07470731179407016, 0.0011770063791749466]
-#nonLinVarsV = [50.0, 2.66666666666666666666]
-#q=0.30117300575
-
 #get q and suscept pop
-q = sird.getQ(infect,recov, dead, pop) #use non feedback model to get q value, should be accurate enough
+#q = sird.getQ(infect,recov, dead, pop) #use non feedback model to get q value, should be accurate enough
+
+linVarsV = [ 0.061108706122272954, 0.005273168933039929, 0.08520091987532212, 0.0010161885990735459]
+nonLinVarsV = [130.0, 4.999999999999999]
+q = 0.30117300575
+
 print("q =", q)
 print("Delay =", sird_fd.delay)
 print("FB weight decay =", sird_fd.weightDecay)
@@ -197,10 +198,6 @@ betaVarsResol = [100, 15]
 #linVarsV, nonLinVarsV = sirdv_fd.solveAllVars(susceptV, infect, recovV, dead, vacc, [b1Range, b2Range], betaVarsResol, printOut=True)
 #linVars, nonLinVars = sird_fd.solveAllVars(suscept, infect, recov, dead, [b1Range, b2Range], betaVarsResol, printOut=True)
 
-linVarsV = [ 0.061108706122272954, 0.005273168933039929, 0.08520091987532212, 0.0010161885990735459]
-nonLinVarsV = [130.0, 4.999999999999999]
-q = 0.30117300575
-
 
 #grid and solve non lin vars
 
@@ -216,8 +213,10 @@ betaTimeV = sirdv_fd.getBetaTime(susceptV, infect, recovV, dead, vacc, linVarsV,
 linVarsTimeV = sirdv_time.getLinVars(susceptV, infect, recovV, dead, vacc)
 linVarsConstV = sirdv.getLinVars(susceptV, infect, recovV, dead, vacc)
 
-#ax.plot(betaTime, color="green", linestyle="dashed", label="Feedback", linewidth=lW) #feedback beta
+#ax.plot(betaTime, color="green", linestyle="dashed", label="Feedback", linewidth=lW*) #feedback beta
 #ax.plot(np.ones(len(linVarsTime[:,0]))*linVarsConst[0], linestyle="dashed", label="Constant", color="blue", linewidth=lW) #const
+
+#ax.plot(linVarsTime[:,0], color="red", label="Actual", linewidth=lW/6) #time varying beta vacc
 
 ax.plot(linVarsTimeV[:,0], color="red", label="Actual", linewidth=lW*.6) #time varying beta vacc
 ax.plot(betaTimeV, color="green", linestyle="dashed", label="Feedback & Vacc.", linewidth=lW) #feedback beta vacc
@@ -226,7 +225,7 @@ ax.plot(np.ones(len(linVarsTimeV[:,0]))*linVarsConstV[0], linestyle="dotted", la
 #Customizing the Figure
 ax.tick_params(axis="both", labelsize=20)
 
-ax.set_xlabel("Time in Days", fontsize = 30)
+ax.set_xlabel("Time", fontsize = 30)
 ax.set_ylabel("Beta", fontsize = 30)
 
 ax.legend(fontsize = 30)
@@ -236,6 +235,11 @@ ax.set_ylim([0,.25])
 
 #plot2
 dTP = 125
+
+print(360, suscept[360], susceptV[360], infect[360])
+print(380, suscept[380], susceptV[380], infect[380])
+print(len(suscept)-1, suscept[-1], susceptV[-1], infect[-1])
+
 
 #linVarsConst2 = sird.getLinVars(suscept[:-dTP], infect[:-dTP], recov[:-dTP], dead[:-dTP]) #use this on initial spike
 
@@ -260,7 +264,7 @@ ax2.set_ylabel("Infected (in Thousands)", fontsize = 30)
 
 ax2.set_ylim([0, max(infect)*1.2/1000])
 
-ax2.legend(fontsize = 30, loc='upper left')
+ax2.legend(fontsize = 30)
 #plot
 
 
@@ -434,6 +438,5 @@ def getFitFeed(suscept, infect, recov, dead, linVars, nonLinVars, initDays):
 #ax3.legend(fontsize = 30, loc='upper right')
 
 #ax3.set_ylim([0, max(infect)*1.2])
-
 
 plt.show()
