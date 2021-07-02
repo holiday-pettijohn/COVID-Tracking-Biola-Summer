@@ -141,6 +141,7 @@ def loadItaAll():
 #dates, infect, recov, dead, pop = loadCalEarly() #change function for different data
 dates, infect, recov, dead, pop = loadCalAll() #change function for different data
 
+lW=6
 
 vacc = loadCalAllVacc(dates, infect, recov, dead)
 
@@ -151,28 +152,33 @@ fig2, ax2 = plt.subplots(figsize=(18,8))
 ax2.set_title("Predictions (California)", fontsize = 35)
 
 #set up params
-sird.weightDecay= .94
 sird.regularizer=10
 
+sird.weightDecay= .94
 sirdv.weightDecay = .94
-
+sirdv_fd.weightDecay = .94
 sird_fd.weightDecay = .94
+
 sird_fd.regularizer = 10
+sirdv_fd.regularizer = 10
+
+sirdv_fd.betaUseDecay = True
 sird_fd.betaUseDecay = True
 
-sird_fd.delay = 21
+sird_fd.delay = 14
+sirdv_fd.delay = 14
 #setup params
 
-
-linVarsV= [0.05755465615737061, 0.05087502982088522, 0.07470731179407016, 0.0011770063791749466]
-nonLinVarsV = [50.0, 2.66666666666666666666]
-q=0.30117300575
+#linVarsV= [0.05755465615737061, 0.05087502982088522, 0.07470731179407016, 0.0011770063791749466]
+#nonLinVarsV = [50.0, 2.66666666666666666666]
+#q=0.30117300575
 
 #get q and suscept pop
-#q = sird.getQ(infect,recov, dead, pop) #use non feedback model to get q value, should be accurate enough
+q = sird.getQ(infect,recov, dead, pop) #use non feedback model to get q value, should be accurate enough
 print("q =", q)
 print("Delay =", sird_fd.delay)
 print("FB weight decay =", sird_fd.weightDecay)
+print("FBV weight decay =", sirdv_fd.weightDecay)
 
 vacc = vacc*q #scale down
 
@@ -183,16 +189,18 @@ susceptV, recovV = sirdv.approxSusceptRecov(suscept.copy(), recov.copy(), vacc)
 
 #get q and suscept pop
 
-
-
 #grid and solve non lin vars
-b1Range = (0, 5000) #modify to get finer results
+b1Range = (0, 500) #modify to get finer results
 b2Range = (0, 5)
 betaVarsResol = [100, 15]
 
 #linVarsV, nonLinVarsV = sirdv_fd.solveAllVars(susceptV, infect, recovV, dead, vacc, [b1Range, b2Range], betaVarsResol, printOut=True)
-
 #linVars, nonLinVars = sird_fd.solveAllVars(suscept, infect, recov, dead, [b1Range, b2Range], betaVarsResol, printOut=True)
+
+linVarsV = [ 0.061108706122272954, 0.005273168933039929, 0.08520091987532212, 0.0010161885990735459]
+nonLinVarsV = [130.0, 4.999999999999999]
+q = 0.30117300575
+
 
 #grid and solve non lin vars
 
@@ -201,16 +209,19 @@ betaVarsResol = [100, 15]
 
 #plot
 #betaTime = sird_fd.getBetaTime(suscept, infect, recov, dead, linVars, nonLinVars)
-linVarsTime, fig6, ax6 = sird_time.getLinVars(suscept, infect, recov, dead, graph=True)
+#linVarsTime = sird_time.getLinVars(suscept, infect, recov, dead)
 #linVarsConst = sird.getLinVars(suscept, infect, recov, dead)
 
 betaTimeV = sirdv_fd.getBetaTime(susceptV, infect, recovV, dead, vacc, linVarsV, nonLinVarsV)
-linVarsTimeV, fig5, ax5 = sirdv_time.getLinVars(susceptV, infect, recovV, dead, vacc, graph=True)
+linVarsTimeV = sirdv_time.getLinVars(susceptV, infect, recovV, dead, vacc)
 linVarsConstV = sirdv.getLinVars(susceptV, infect, recovV, dead, vacc)
 
-ax.plot(linVarsTimeV[:,0], color="red", label="Actual") #time varying beta
-ax.plot(betaTimeV, color="green", linestyle="dashed", label="Feedback") #feedback beta
-ax.plot(np.ones(len(linVarsTimeV[:,0]))*linVarsConstV[0], linestyle="dashed", label="Vaccinated", color="purple") #vacc
+#ax.plot(betaTime, color="green", linestyle="dashed", label="Feedback", linewidth=lW) #feedback beta
+#ax.plot(np.ones(len(linVarsTime[:,0]))*linVarsConst[0], linestyle="dashed", label="Constant", color="blue", linewidth=lW) #const
+
+ax.plot(linVarsTimeV[:,0], color="red", label="Actual", linewidth=lW*.6) #time varying beta vacc
+ax.plot(betaTimeV, color="green", linestyle="dashed", label="Feedback & Vacc.", linewidth=lW) #feedback beta vacc
+ax.plot(np.ones(len(linVarsTimeV[:,0]))*linVarsConstV[0], linestyle="dotted", label="Constant & Vacc.", color="blue", linewidth=lW) #vacc
 
 #Customizing the Figure
 ax.tick_params(axis="both", labelsize=20)
@@ -231,13 +242,15 @@ dTP = 125
 #sp, ipConst, rp, dp = sird.predictMatch(suscept, infect, recov, dead, dTP, linVars=linVarsConst, graph=False)
 sp, ipConstV, rp, dp = sirdv.predictMatch(susceptV, infect, recovV, dead, vacc, dTP, linVars=linVarsConstV, graph=False)
 sp, ipFeedV, rp, dp = sirdv_fd.predictMatch(susceptV, infect, recovV, dead, vacc, dTP, linVars=linVarsV, nonLinVars=nonLinVarsV, graph=False)
+#sp, ipFeed, rp, dp = sird_fd.predictMatch(suscept, infect, recov, dead, dTP, linVars=linVars, nonLinVars=nonLinVars, graph=False)
 
-ax2.plot(infect/1000, color="red", label="Actual")
-#ax2.plot(ipConst, color="blue", label="Constant", linestyle="dotted")
-ax2.plot(ipFeedV/1000, color="green", label="Feedback", linestyle="dashed")
-ax2.plot(ipConstV/1000, color="purple", label="Constant", linestyle="dashed")
+ax2.plot(infect/1000, color="red", label="Actual", linewidth=lW)
+#ax2.plot(ipConst/1000, color="blue", label="Constant", linestyle="dotted", linewidth=lW)
+#ax2.plot(ipFeed/1000, color="green", label="Feedback", linestyle="dashed", linewidth=lW)
+ax2.plot(ipConstV/1000, color="blue", label="Constant & Vacc.", linestyle="dotted", linewidth=lW)
+ax2.plot(ipFeedV/1000, color="green", label="Feedback & Vacc.", linestyle="dashed", linewidth=lW)
 
-ax2.axvline(len(suscept)-dTP, color='black', linestyle='dotted')
+ax2.axvline(len(suscept)-dTP, color='black', linestyle='dotted', linewidth=lW)
 
 #Customizing the Figure
 ax2.tick_params(axis="both", labelsize=20)
@@ -251,6 +264,23 @@ ax2.legend(fontsize = 30, loc='upper left')
 #plot
 
 
+
+#feed params
+#q = 0.30117300575
+#Delay = 14
+#FB weight decay = 0.94
+#FBV weight decay = 0.94
+#Solution:
+#b0:  0.061108706122272954
+#b1:  0.005273168933039929
+#g:   0.08520091987532212
+#nu:  0.0010161885990735459
+#b2:  130.0
+#b3:  4.999999999999999
+#cost:  15179.877957803526
+#linVars = [ 0.061108706122272954, 0.005273168933039929, 0.08520091987532212, 0.0010161885990735459]
+#nonLinVars = [130.0, 4.999999999999999]
+#q = 0.30117300575
 
 #params for early Italy:
 #q = 0.2431392053333333
@@ -381,10 +411,6 @@ def getFitFeed(suscept, infect, recov, dead, linVars, nonLinVars, initDays):
 
     return ip
 #gridding functions
-
-
-fig4,ax4 = sirdv_time.displayData(susceptV, infect, recovV, dead, vacc,graphVals=[1,1,1,1,1])
-
 
 #fig3, ax3 = plt.subplots(figsize=(18,8))
 #ax3.set_title("Optimal Initial Conditions and Fit in Italy", fontsize = 35)
