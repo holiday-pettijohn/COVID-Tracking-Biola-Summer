@@ -18,15 +18,11 @@ weightDecay = 1
 
 
 def approxSusceptRecov(S,R,V):
-    vDiff = np.diff(V)
-    vDiff = vDiff.tolist()
-    vDiff.append(vDiff[-1])
-    vDiff = np.asarray(vDiff)
     
-    for t in range(0, len(S)): 
+    for t in range(1, len(S)): 
 
-        subS = (vDiff[t] * S[t]) / (S[t] + R[t])
-        subR = (vDiff[t] * R[t]) / (S[t] + R[t])
+        subS = ((V[t] - V[t-1]) * S[t]) / (S[t] + R[t])
+        subR = ((V[t] - V[t-1]) * R[t]) / (S[t] + R[t])
 
         for i in range(t,len(S)):
             S[i] -= subS
