@@ -134,7 +134,10 @@ def loadItaAll():
     dead = deadRaw[skipDays:numDays]
     
     return dates, infect, recov, dead, pop
-    
+
+
+
+
 
 #dates, infect, recov, dead, pop = loadItaEarly() #change function for different data
 #dates, infect, recov, dead, pop = loadItaAll() #change function for different data
@@ -187,6 +190,23 @@ vacc = vacc*q #scale down
 suscept = process.getSuscept(infect,recov,dead, q,pop)
 
 susceptV, recovV = sirdv.approxSusceptRecov(suscept.copy(), recov.copy(), vacc)
+
+
+fig5, ax5 = plt.subplots(figsize=(18,8))
+
+#ax5.plot(vacc[350:]/1000, label="Vaccinated", color="green", linewidth=6)
+#ax5.plot(susceptV/1000, label="Susceptible", color="purple", linewidth=6)
+#ax5.plot(recovV/1000, label="Recovered", color="blue", linewidth=6)
+#ax5.plot(dead/1000, label="Dead", color="black", linewidth=6)
+ax5.plot(infect[350:]/1000, label="Infected", color="red", linewidth=6)
+
+ax5.set_title("Infected", fontsize = 35)
+
+#ax5.tick_params(axis="both", labelsize=20)
+#ax5.set_xlabel("Time", fontsize = 30)
+#ax5.set_ylabel("Population Size (in Thousands)", fontsize = 30)
+
+#ax5.legend(fontsize = 30, loc='center left')
 
 #get q and suscept pop
 
