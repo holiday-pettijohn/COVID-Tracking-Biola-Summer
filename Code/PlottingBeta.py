@@ -94,8 +94,8 @@ def loadItaAll():
 
 #dates, infect, recov, dead, pop = loadItaEarly() #change function for different data
 #dates, infect, recov, dead, pop = loadItaAll() #change function for different data
-#dates, infect, recov, dead, pop = loadCalEarly() #change function for different data
-dates, infect, recov, dead, pop = loadCalAll() #change function for different data
+dates, infect, recov, dead, pop = loadCalEarly() #change function for different data
+#dates, infect, recov, dead, pop = loadCalAll() #change function for different data
 
 fig, ax = plt.subplots(figsize=(18,8))
 ax.set_title("Transmission Rate (CA, All Time)", fontsize = 35)
@@ -106,12 +106,10 @@ fig2, ax2 = plt.subplots(figsize=(18,8))
 ax2.set_title("Predictions (CA)", fontsize = 35)
 
 #set up params
-sird.weightDecay= .94
-sirdv.weightDecay= .94
+sird.weightDecay= .93
 sird.regularizer=10
 
-sird_fd.weightDecay = .98
-sirdv_fd.weightDecay = .98
+sird_fd.weightDecay = .93
 sird_fd.regularizer = 10
 sird_fd.betaUseDecay = True
 
@@ -119,10 +117,14 @@ sird_fd.delay = 21
 #setup params
 
 
-
-#linVars = [ 0.02773790203107795, 0.08361680058861755, 0.03666749736275282, 0.0006749992291412268]
-#nonLinVars = [155.0, 5.0]
+linVars = [ .06340781449212123 , .14704240670154564, 0.07617616075268935, 0.00121143972523787]
+nonLinVars = [350.0, 4.999999999999999]
 q = 0.30117300575
+
+#linVars = [ -0.055354205755110006, 0.12255307448722035, 0.08555686020188996, 0.0010161885990735459]
+#nonLinVars = [15.0, 5.0]
+#q = 0.30117300575
+
 
 
 #get q and suscept pop
@@ -138,11 +140,11 @@ suscept = process.getSuscept(infect,recov,dead, q,pop)
 
 
 #grid and solve non lin vars
-b1Range = (0, 500) #modify to get finer results
+b1Range = (0, 100) #modify to get finer results
 b2Range = (0, 5)
-betaVarsResol = [100, 15]
+betaVarsResol = [50, 8]
 
-linVars, nonLinVars = sird_fd.solveAllVars(suscept, infect, recov, dead, [b1Range, b2Range], betaVarsResol, printOut=True)
+#linVars, nonLinVars = sird_fd.solveAllVars(suscept, infect, recov, dead, [b1Range, b2Range], betaVarsResol, printOut=True)
 
 #grid and solve non lin vars
 
@@ -171,7 +173,7 @@ ax.set_ylim([0,.25])
 
 
 #plot2
-dTP = len(suscept)-200
+dTP = len(suscept)-160
 
 linVarsConst2 = sird.getLinVars(suscept[:-dTP], infect[:-dTP], recov[:-dTP], dead[:-dTP]) #use this on initial spike
 
@@ -245,17 +247,17 @@ ax2.legend(fontsize = 30, loc='upper left')
 #params for all California:
 #q = 0.30117300575
 #Delay = 21
-#FB weight decay = 0.98
+#FB weight decay = 0.93
 #Solution:
-#b0:  -1.934982894851641
-#b1:  2.026581118760335
-#g:   0.07949655553234568
-#nu:  0.0012815943699233067
-#b2:  10.0
-#b3:  4.666666666666666
-#cost:  2877484.3935196567
-#linVars = [ -1.934982894851641, 2.026581118760335, 0.07949655553234568, 0.0012815943699233067]
-#nonLinVars = [10.0, 4.666666666666666]
+#b0:  -0.026942664031480594
+#b1:  0.09272694800909409
+#g:   0.08541626656698537
+#nu:  0.0008505863398209726
+#b2:  16.0
+#b3:  5.0
+#cost:  9296.355103419619
+#linVars = [ -0.026942664031480594, 0.09272694800909409, 0.08541626656698537, 0.0008505863398209726]
+#nonLinVars = [16.0, 5.0]
 #q = 0.30117300575
 
 def getFitError(I, IP):
@@ -348,3 +350,8 @@ ax3.set_ylim([0, max(infect)*1.2/1000])
 #ax3.set_xlim(100)
 
 plt.show()
+
+
+process.writeCSV(ax, dates, "..\\Figures\\CSVs\\betaCalEarly.csv")
+process.writeCSV(ax2, dates, "..\\Figures\\CSVs\\predictCalEarly.csv")
+process.writeCSV(ax3, dates, "..\\Figures\\CSVs\\fitCalEarly.csv")
