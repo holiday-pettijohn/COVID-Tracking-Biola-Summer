@@ -194,11 +194,11 @@ susceptV, recovV = sirdv.approxSusceptRecov(suscept.copy(), recov.copy(), vacc)
 
 fig5, ax5 = plt.subplots(figsize=(18,8))
 
-#ax5.plot(vacc[350:]/1000, label="Vaccinated", color="green", linewidth=6)
-#ax5.plot(susceptV/1000, label="Susceptible", color="purple", linewidth=6)
-#ax5.plot(recovV/1000, label="Recovered", color="blue", linewidth=6)
-#ax5.plot(dead/1000, label="Dead", color="black", linewidth=6)
-ax5.plot(infect[350:]/1000, label="Infected", color="red", linewidth=6)
+ax5.plot(vacc/1000, label="Vaccinated", color="green", linewidth=6)
+ax5.plot(susceptV/1000, label="Susceptible", color="purple", linewidth=6)
+ax5.plot(recovV/1000, label="Recovered", color="blue", linewidth=6)
+ax5.plot(dead/1000, label="Dead", color="black", linewidth=6)
+ax5.plot(infect/1000, label="Infected", color="red", linewidth=6)
 
 ax5.set_title("Infected", fontsize = 35)
 
@@ -255,10 +255,6 @@ ax.set_ylim([0,.25])
 
 #plot2
 dTP = 125
-
-print(360, suscept[360], susceptV[360], infect[360])
-print(380, suscept[380], susceptV[380], infect[380])
-print(len(suscept)-1, suscept[-1], susceptV[-1], infect[-1])
 
 
 #linVarsConst2 = sird.getLinVars(suscept[:-dTP], infect[:-dTP], recov[:-dTP], dead[:-dTP]) #use this on initial spike
@@ -460,3 +456,7 @@ def getFitFeed(suscept, infect, recov, dead, linVars, nonLinVars, initDays):
 #ax3.set_ylim([0, max(infect)*1.2])
 
 plt.show()
+
+process.writeCSV(ax, dates, "..\\Figures\\CSVs\\betaCalVacc.csv")
+process.writeCSV(ax2, dates, "..\\Figures\\CSVs\\predictCalVacc.csv")
+process.writeCSV(ax5, dates, "..\\Figures\\CSVs\\SIRDV.csv")

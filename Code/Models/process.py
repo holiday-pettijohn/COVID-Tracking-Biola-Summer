@@ -33,3 +33,20 @@ def loadData(filename): #load the dates, I, R, D data
     recovered = recovered.astype(float)
     infected = infected.astype(float)
     return dates, infected, recovered, deaths
+
+
+#for saving axes into csv files
+def writeCSV(ax, dates, fileName):
+    with open(fileName, mode='w', newline='') as file:
+        writer = csv.writer(file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        
+        headerRow = list(dates.copy())
+        headerRow.insert(0, "Label")
+        writer.writerow(headerRow) #top row
+        
+        lines = ax.get_lines() #line data
+        for line in lines:
+            row = list(line.get_xdata())
+            row.insert(0, line.get_label())
+            
+            writer.writerow(row)
