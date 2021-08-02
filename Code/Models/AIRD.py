@@ -40,7 +40,7 @@ class AIRD:
 
             A[t+1] = diffA + A[t]
             I[t+1] = diffI + I[t]
-        
+            
         if(setSelf):
             self.I = I
             self.A = A
@@ -48,10 +48,10 @@ class AIRD:
         return I
 
     #delta is the percent to move the var, eta is the learning rate
-    def iterateVars(self, theta, eta, delta): 
+    def iterateVars(self, theta, vel, velDecay,eta, delta, w): 
 
         simulatedI = self.simulate(theta) #f(theta)
-
+        
         gradient = np.zeros((len(theta), len(self.actualI))) #f'(theta)
         for i in range(len(theta)): #find the gradient for each var (partial deriv)
             thetaCopy = np.copy(theta)
@@ -63,19 +63,47 @@ class AIRD:
             
             gradient[i] = (self.simulate(thetaCopy) - simulatedI) / (varChange)
         
-        thetaNew = theta - eta * gradient @ (-2*(self.actualI - simulatedI)) #formula for iterating the variables
         
-        thetaNew = self.checkRanges(thetaNew) #verify variables are in bounds
+        actualChangeI = np.diff(self.actualI)
+        simulatedChangeI = np.diff(simulatedI)
+        gradientSlope = np.zeros((len(theta), len(actualChangeI))) #f'(theta)
+        for i in range(len(theta)):
+            thetaCopy = np.copy(theta)
+            
+            #varChange = theta[i] * delta #move some percent of the variable, this could also just be a constant instead
+            varChange = delta
+            
+            thetaCopy[i] = thetaCopy[i] + varChange
+            
+            gradientSlope[i] = (np.diff(self.simulate(thetaCopy)) - simulatedChangeI) / (varChange)
         
-        return thetaNew
+        thetaChange0 = (1/len(self.actualI)) * gradient @ (-2*(self.actualI - simulatedI)) #normal gradient
+        thetaChange1 = (1/len(actualChangeI)) * w*gradientSlope @ (-2*(actualChangeI - simulatedChangeI)) #slope gradient
+        thetaChange = eta * (thetaChange0 + thetaChange1)
+        
+        vel = vel*velDecay + thetaChange #update the velocity
+        theta = theta - vel  #update theta based on the velocity vector
+        theta = self.checkRanges(theta) #verify variables are in bounds
+        
+        return theta, vel
     
-    def getError(self): #squared error, can be modified to weight decay easily
+    def getError(self, w): #squared error, can be modified to weight decay easily
         error = 0
         
         for t in range(len(self.actualI)):
             error = error + (self.actualI[t] - self.I[t])**2 #squared error
             
         error / len(self.actualI) # / T, average error
+        
+        
+        slopeError = 0 #error on I'
+        changeI = np.diff(self.actualI) #I'
+        changeSimI = np.diff(self.I) #simulated I change
+        for t in range(len(changeI)):
+            slopeError = slopeError + (changeI[t] - changeSimI[t])**2 #squared error
+        slopeError / len(changeI) # / T, average error
+        
+        error = error + slopeError*w #combine the two errors.
         
         return error
     
@@ -88,20 +116,21 @@ class AIRD:
             return val
     
     def checkRanges(self, theta): #make sure all the variables are within range
-        theta[0] = self.boundVariable(theta[0], 0, 1) #I(t)
-        theta[1] = self.boundVariable(theta[1], 0.000001, 1) #A(t)
+        theta[0] = self.boundVariable(theta[0], 0, .005) #I(t)
+        theta[1] = self.boundVariable(theta[1], 0.000001, .005) #A(t)
         
         theta[2] = self.boundVariable(theta[2], .00001, 1) #q
         
-        theta[3] = self.boundVariable(theta[3], 0.00001, 1) #gamma0
-        theta[4] = self.boundVariable(theta[4], 0.00001, 1) #gamma1
+        theta[3] = self.boundVariable(theta[3], 0.00001, .1) #gamma0
+        theta[4] = self.boundVariable(theta[4], 0.00001, .1) #gamma1
         
-        theta[5] = self.boundVariable(theta[5], .00001, 1) #kappa
+        theta[5] = self.boundVariable(theta[5], .00001, .3) #kappa
         
-        theta[6] = self.boundVariable(theta[6], 0.00001, 5) #beta0
+        #theta[6] = self.boundVariable(theta[6], 0.00001, theta[5] + theta[3]) #beta0 < gamma0 + kappa
+        theta[6] = 0
         theta[7] = self.boundVariable(theta[7], 0.00001, 5) #beta1
         theta[8] = self.boundVariable(theta[8], 0, 1e10) #beta2
-        theta[9] = self.boundVariable(theta[9], 0, 100) #beta3
+        theta[9] = self.boundVariable(theta[9], .5, 10) #beta3
         
         return theta
         
@@ -119,16 +148,16 @@ class AIRD:
         theta[3] = .001 + random.random()*.1 #gamma0 asympt recov rate [.001, .101]
         theta[4] = .001 + random.random()*.1 #gamma1 infect recov rate [.001, .101]
         
-        theta[5] = .01 + random.random()*.5 #kappa, asypt -> infect rate [.01, .51]
+        theta[5] = .01 + random.random()*.2 #kappa, asypt -> infect rate [.01, .21]
         
-        theta[6] = .001 + random.random()*.5 #beta0, floor infection rate [.001, .501]
+        theta[6] = .001 + random.random()*.2 #beta0, floor infection rate [.001, .201]
         theta[7] = .001 + random.random()*.5 #beta1, floor infection rate [.001, .501]
         theta[8] = 1 + random.random()*500 #beta2, scaler to I [1, 501]
         theta[9] = .5 + random.random()*5 #exponential for I*beta2 [.5, 5.5]
         
         return theta
     
-    def solveVars(self, eta=.001, delta=.01, printOut=0):
+    def solveVars(self, velDecay = .9, eta=.001, delta=.01, w=1, printOut=0):
         theta = self.getRandomInit() #get a random starting positions for the variables
         
         if(printOut > 1):
@@ -136,16 +165,17 @@ class AIRD:
             self.printTheta(theta)
         
         self.simulate(theta, setSelf=True)
-        newError = self.getError()
+        newError = self.getError(w)
         
         iteration = 0
+        vel = np.zeros(len(theta)) #starting velocity = 0
         change = 1 #init val doesn't matter as long as change >= .001
-        while(abs(change) > .001 and iteration < 10000): #while we improve/deprove more than .01% (not converged)
+        while(abs(change) > .00001 and iteration < 1000): #while we improve/deprove more than .01% (not converged)
             currentError = newError #progress currentError
-            theta = self.iterateVars(theta, eta, delta)
+            theta, vel = self.iterateVars(theta, vel, velDecay, eta, delta, w)
             
             self.simulate(theta, setSelf=True)
-            newError = self.getError()
+            newError = self.getError(w)
             
             change = (currentError - newError)/currentError
             if(printOut > 0):
