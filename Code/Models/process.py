@@ -3,6 +3,33 @@ import csv
 
 #this model is for simple pre processing steps like approximating recovered and vaccinations
 
+#scale the infections by how many tests are conducted, scaling is arbitrary so the maxes of before and after remmain the same
+def scaleNewInfections(newInfect, newTests): 
+    
+    scaledInfections = np.zeros(len(newTests))
+    
+    for i in range(len(newTests)):
+        if(newTests[i] != 0):
+            scaledInfections[i] = newInfect[i]/newTests[i]
+    
+    scalingValue = 1
+    
+    for i in range(len(newTests)): #find the minimum scaling value, basically modI >= I for all but as a close to I as possible
+        if(scaledInfections[i] != 0 and scaledInfections[i]*scalingValue < newInfect[i]):
+            scalingValue = newInfect[i]/scaledInfections[i]
+    
+    scaledInfections = scaledInfections * scalingValue #scale somewhat appropriately
+    
+    return scaledInfections
+        
+
+def reverseDiff(diffList):
+    newList = np.zeros(len(diffList))
+    newList[0] = diffList[0]
+    for i in range(len(diffList)-1):
+        newList[i+1] = diffList[i+1] + newList[i]
+    return newList
+
 def getRecov(totalI, D, shift=13): #approximated recoered, assume after 13 days if the new infected is not dead, they recovered
     R = np.zeros(len(totalI))
     for i in range(len(totalI) - shift):
