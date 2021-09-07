@@ -39,7 +39,7 @@ class GradDescent:
         self.y = data
         self.consts = consts
         
-        if(params!=None):
+        if params is None:
             self.params == params
             
         self.begin = startFunc
@@ -121,9 +121,9 @@ class GradDescent:
     
     
     #printOut represents how many iterations to wait to update on solving progress
-    def solveVars(self, printOut=0, params=None):
+    def solveVars(self, printOut=0, params=None, maxIteration=10000000):
         
-        if(params==None):
+        if params is None:
             params = self.start()
         
         self.params = params
@@ -144,7 +144,7 @@ class GradDescent:
         bestError = newError #the best vars configuration we've found so far
         lastImprovement = 0
         
-        while(lastImprovement < 250): #quit if no improvement for some iterations
+        while(lastImprovement < 250 and iteration < maxIteration): #quit if no improvement for some iterations
             
             currentError = newError #progress currentError
             params, vel = self.iterateVars(params, vel)
