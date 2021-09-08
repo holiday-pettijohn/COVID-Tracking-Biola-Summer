@@ -64,7 +64,21 @@ def LoadCountryNormal(countryName): #load the country data with typical processi
     D = D/pop
     V = V/pop
     
-    return dates, I, R, D, V #current infections, recoveries, deaths, vaccinations
+    fNZ = 0 #first date with nonzero data
+    lNZ = len(I)-1 #last date with nonzero data
+    
+    for i in range(len(I)):
+        if(I[i] != 0):
+            fNZ = i
+            break
+         
+    for i in range(len(I)):
+        if(I[-i] != 0):
+            lNZ = len(I) - i - 1
+            break
+    
+    
+    return dates[fNZ:lNZ], I[fNZ:lNZ], R[fNZ:lNZ], D[fNZ:lNZ], V[fNZ:lNZ] #current infections, recoveries, deaths, vaccinations
     
                                      
                                      

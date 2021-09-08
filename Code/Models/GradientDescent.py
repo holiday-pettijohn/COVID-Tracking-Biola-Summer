@@ -58,7 +58,7 @@ class GradDescent:
         for i in range(len(params)): #find the gradient for each var (partial deriv)
             paramsCopy = np.copy(params)
             
-            varChange = self.delta #paramsCopy[i] * self.delta #move some percent of the variable, this could also just be a constant 
+            varChange = paramsCopy[i] * self.delta #move some percent of the variable, this could also just be a constant 
             paramsCopy[i] = paramsCopy[i] + varChange # theta = theta + dtheta
             
             #print(varChange)
@@ -69,13 +69,14 @@ class GradDescent:
         dx = np.diff(x) #slope of generated data
         #get the gradient of f'(params)
         gradientSlope = np.zeros((len(params), len(dy))) #f'(theta)
-        for i in range(len(params)):
-            paramsCopy = np.copy(params)
-            
-            varChange = self.delta #paramsCopy[i] + self.delta #move some percent of the variable, this could also just be a constant 
-            paramsCopy[i] = paramsCopy[i] + varChange # theta = theta + dtheta
-            
-            gradientSlope[i] = (np.diff(self.simulate(paramsCopy)) - dx) / (varChange) #dy/dx essentially
+        if(self.slopeWeight != 0):
+            for i in range(len(params)):
+                paramsCopy = np.copy(params)
+
+                varChange = self.delta #paramsCopy[i] * self.delta #move some percent of the variable, this could also just be a constant 
+                paramsCopy[i] = paramsCopy[i] + varChange # theta = theta + dtheta
+
+                gradientSlope[i] = (np.diff(self.simulate(paramsCopy)) - dx) / (varChange) #dy/dx essentially
             
         
         #do calculus to solve this
@@ -107,11 +108,12 @@ class GradDescent:
         
         
         slopeError = 0 #slope error
-        dy = np.diff(self.y) #slope of actual
-        dx = np.diff(self.x) #slope of generated
-        for t in range(len(dy)):
-            slopeError = slopeError + (dy[t] - dx[t])**2 #squared error
-        slopeError / len(dy) # / T, average error
+        if(self.slopeWeight != 0):
+            dy = np.diff(self.y) #slope of actual
+            dx = np.diff(self.x) #slope of generated
+            for t in range(len(dy)):
+                slopeError = slopeError + (dy[t] - dx[t])**2 #squared error
+            slopeError / len(dy) # / T, average error
         
         
         return error + slopeError*self.slopeWeight #combine the two errors.
