@@ -104,7 +104,7 @@ class GradDescent:
         error = 0
         for t in range(len(self.y)):
             error = error + (self.y[t] - self.x[t])**2 #squared error
-        error / len(self.y) # / T, average error
+        error = error / len(self.y) # / T, average error
         
         
         slopeError = 0 #slope error
@@ -113,7 +113,7 @@ class GradDescent:
             dx = np.diff(self.x) #slope of generated
             for t in range(len(dy)):
                 slopeError = slopeError + (dy[t] - dx[t])**2 #squared error
-            slopeError / len(dy) # / T, average error
+            slopeError = slopeError / len(dy) # / T, average error
         
         
         return error + slopeError*self.slopeWeight #combine the two errors.
