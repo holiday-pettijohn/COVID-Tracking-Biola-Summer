@@ -39,7 +39,7 @@ class GradDescent:
         self.y = data
         self.consts = consts
         
-        if(params!=None):
+        if params is None:
             self.params == params
             
         self.begin = startFunc
@@ -58,7 +58,7 @@ class GradDescent:
         for i in range(len(params)): #find the gradient for each var (partial deriv)
             paramsCopy = np.copy(params)
             
-            varChange = self.delta #paramsCopy[i] * self.delta #move some percent of the variable, this could also just be a constant 
+            varChange = paramsCopy[i] * self.delta #move some percent of the variable, this could also just be a constant 
             paramsCopy[i] = paramsCopy[i] + varChange # theta = theta + dtheta
             
             #print(varChange)
@@ -69,13 +69,14 @@ class GradDescent:
         dx = np.diff(x) #slope of generated data
         #get the gradient of f'(params)
         gradientSlope = np.zeros((len(params), len(dy))) #f'(theta)
-        for i in range(len(params)):
-            paramsCopy = np.copy(params)
-            
-            varChange = self.delta #paramsCopy[i] + self.delta #move some percent of the variable, this could also just be a constant 
-            paramsCopy[i] = paramsCopy[i] + varChange # theta = theta + dtheta
-            
-            gradientSlope[i] = (np.diff(self.simulate(paramsCopy)) - dx) / (varChange) #dy/dx essentially
+        if(self.slopeWeight != 0):
+            for i in range(len(params)):
+                paramsCopy = np.copy(params)
+
+                varChange = self.delta #paramsCopy[i] * self.delta #move some percent of the variable, this could also just be a constant 
+                paramsCopy[i] = paramsCopy[i] + varChange # theta = theta + dtheta
+
+                gradientSlope[i] = (np.diff(self.simulate(paramsCopy)) - dx) / (varChange) #dy/dx essentially
             
         
         #do calculus to solve this
@@ -103,15 +104,16 @@ class GradDescent:
         error = 0
         for t in range(len(self.y)):
             error = error + (self.y[t] - self.x[t])**2 #squared error
-        error / len(self.y) # / T, average error
+        error = error / len(self.y) # / T, average error
         
         
         slopeError = 0 #slope error
-        dy = np.diff(self.y) #slope of actual
-        dx = np.diff(self.x) #slope of generated
-        for t in range(len(dy)):
-            slopeError = slopeError + (dy[t] - dx[t])**2 #squared error
-        slopeError / len(dy) # / T, average error
+        if(self.slopeWeight != 0):
+            dy = np.diff(self.y) #slope of actual
+            dx = np.diff(self.x) #slope of generated
+            for t in range(len(dy)):
+                slopeError = slopeError + (dy[t] - dx[t])**2 #squared error
+            slopeError = slopeError / len(dy) # / T, average error
         
         
         return error + slopeError*self.slopeWeight #combine the two errors.
@@ -121,9 +123,9 @@ class GradDescent:
     
     
     #printOut represents how many iterations to wait to update on solving progress
-    def solveVars(self, printOut=0, params=None):
+    def solveVars(self, printOut=0, params=None, maxIteration=10000000):
         
-        if(params==None):
+        if params is None:
             params = self.start()
         
         self.params = params
@@ -144,7 +146,7 @@ class GradDescent:
         bestError = newError #the best vars configuration we've found so far
         lastImprovement = 0
         
-        while(lastImprovement < 250): #quit if no improvement for some iterations
+        while(lastImprovement < 250 and iteration < maxIteration): #quit if no improvement for some iterations
             
             currentError = newError #progress currentError
             params, vel = self.iterateVars(params, vel)
