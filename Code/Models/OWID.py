@@ -46,23 +46,24 @@ def LoadCountry(countryName, selectColumns=np.arange(len(data[0]))): #load the d
 
 
 def LoadCountryNormal(countryName): #load the country data with typical processing
-    dates, countryData = LoadCountry(countryName, selectColumns=[5, 7, 25, 35, 46])
-    [newI, D, tests, V, pop] = countryData
+    dates, countryData = LoadCountry(countryName, selectColumns=[4, 5, 7, 25, 35, 46])
+    [totalI, newI, D, tests, V, pop] = countryData
     
     pop = pop[0] #get as a number, instead of a list
+    
+    #change values so that S+I+R+D+V = 1
+    totalI = totalI/pop
+    D = D/pop
+    V = V/pop
+    totalI = totalI/pop
     
     modNewI = process.scaleNewInfections(newI, tests) #scale by tests
     
     I = process.reverseDiff(modNewI) #aggregate
+    I = I * (.25/(max(I))) #adjust so it matches max = .1, this is arbitrary
     
     R = process.getRecov(I, D)
     I = I - R - D #changge to current infections, instead of total
-    
-    #change values so that S+I+R+D+V = 1
-    I = I/pop
-    R = R/pop
-    D = D/pop
-    V = V/pop
     
     fNZ = 0 #first date with nonzero data
     lNZ = len(I)-1 #last date with nonzero data
@@ -77,10 +78,46 @@ def LoadCountryNormal(countryName): #load the country data with typical processi
             lNZ = len(I) - i - 1
             break
     
+    dates = dates[fNZ:lNZ]
+    I = I[fNZ:lNZ]
+    R = R[fNZ:lNZ]
+    D = D[fNZ:lNZ]
+    V = V[fNZ:lNZ]
     
-    return dates[fNZ:lNZ], I[fNZ:lNZ], R[fNZ:lNZ], D[fNZ:lNZ], V[fNZ:lNZ] #current infections, recoveries, deaths, vaccinations
+    sD = 0 #startDate, first day with over .001 infection
+    while(I[sD] < .001):
+        sD = sD+1
     
-                                     
+    return dates[sD:],I[sD:],R[sD:],D[sD:],V[sD:] #current infections, recoveries, deaths, vaccinations
+    
+def LoadCountryNormalDeaths(countryName, shiftAmount=15): #load the country data with typical processing via deaths
+    dates, countryData = LoadCountry(countryName, selectColumns=[4, 7, 36, 46])
+    [totalI, D, V, pop] = countryData
+    
+    pop = pop[0] #get as a number, instead of a list
+    #change values so that S+I+R+D+V = 1
+    D = D/pop
+    V = V/pop
+    totalI = totalI/pop
+    
+    modI = D[shiftAmount:] #infection is just a scaled version of deaths with some shift
+    
+    modI = modI*(.25/(max(modI))) #adjust so it matches max = .25, this is arbitrary #change modI so the totals are the same
+    
+    dates = dates[:-shiftAmount]
+    V = V[:-shiftAmount]
+    D = D[:-shiftAmount]
+    
+    R = process.getRecov(modI, D, shift=13)
+    I = modI - R - D #changge to current infections, instead of total
+    
+    
+    sD = 0 #startDate, first day with over .001 infection
+    while(I[sD] < .001):
+        sD = sD+1
+    
+    return dates[sD:],I[sD:],R[sD:],D[sD:],V[sD:] #current infections, recoveries, deaths, vaccinations
+                                 
                                      
 # 0 	iso_code
 # 1 	continent
