@@ -1,12 +1,12 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.22 (MiKTeX 21.6) (preloaded format=pdflatex 2021.9.24)  24 SEP 2021 14:40
+This is pdfTeX, Version 3.141592653-2.6-1.40.23 (MiKTeX 21.8) (preloaded format=pdflatex 2021.9.28)  29 SEP 2021 09:24
 entering extended mode
 **"C:/Users/daniel/OneDrive/Documents/GitHub/COVID-Tracking-Biola-Summer/Feedba
 ck Conference Paper/sample.tex"
 
 (C:/Users/daniel/OneDrive/Documents/GitHub/COVID-Tracking-Biola-Summer/Feedback
  Conference Paper/sample.tex
-LaTeX2e <2021-06-01>
-L3 programming layer <2021-06-01>
+LaTeX2e <2021-06-01> patch level 1
+L3 programming layer <2021-08-27>
 (C:\Users\daniel\AppData\Local\Programs\MiKTeX\tex/latex/base\article.cls
 Document Class: article 2021/02/12 v1.4n Standard LaTeX document class
 (C:\Users\daniel\AppData\Local\Programs\MiKTeX\tex/latex/base\size10.clo
@@ -58,7 +58,7 @@ File: pdftex.def 2020/10/05 v1.2a Graphics/color driver for pdftex
 )
 (C:\Users\daniel\AppData\Local\Programs\MiKTeX\tex/latex/l3backend\l3backend-pd
 ftex.def
-File: l3backend-pdftex.def 2021-05-07 L3 backend support: PDF output (pdfTeX)
+File: l3backend-pdftex.def 2021-08-04 L3 backend support: PDF output (pdfTeX)
 \l__color_backend_stack_int=\count190
 \l__pdf_internal_box=\box50
 )
@@ -146,12 +146,6 @@ Type  H <return>  for immediate help.
                                                   
 l.108 \hfil\epsfig{file=fig.eps, width=4in}
                                            \hfil
-? '
-Type <return> to proceed, S to scroll future error messages,
-R to run without stopping, Q to run quietly,
-I to insert something, E to edit your file,
-1 or ... or 9 to ignore the next 1 to 9 tokens of input,
-H for help, X to quit.
 ? 
 
 LaTeX Warning: Reference `figlabel' on page 2 undefined on input line 114.
@@ -171,10 +165,10 @@ LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
 
  ) 
 Here is how much of TeX's memory you used:
- 1322 strings out of 478864
- 20716 string characters out of 2848186
- 323668 words of memory out of 3000000
- 19258 multiletter control sequences out of 15000+600000
+ 1323 strings out of 478927
+ 20742 string characters out of 2852061
+ 320457 words of memory out of 3000000
+ 19194 multiletter control sequences out of 15000+600000
  410229 words of font info for 50 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  72i,7n,80p,324b,257s stack positions out of 5000i,500n,10000p,200000b,80000s
@@ -195,7 +189,7 @@ public/amsfonts/cm/cmsy9.pfb><C:/Users/daniel/AppData/Local/Programs/MiKTeX/fon
 ts/type1/public/amsfonts/cm/cmti9.pfb><C:/Users/daniel/AppData/Local/Programs/M
 iKTeX/fonts/type1/public/amsfonts/cm/cmtt10.pfb><C:/Users/daniel/AppData/Local/
 Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmtt9.pfb>
-Output written on sample.pdf (3 pages, 178167 bytes).
+Output written on sample.pdf (3 pages, 178189 bytes).
 PDF statistics:
  88 PDF objects out of 1000 (max. 8388607)
  0 named destinations out of 1000 (max. 500000)

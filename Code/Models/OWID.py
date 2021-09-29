@@ -9,7 +9,7 @@ import platform
 
 #load the data and header
 
-fileName = "../Data/OWID Data/owid-covid-data.csv" #mac file address
+fileName = "../../Data/OWID Data/owid-covid-data.csv" #mac file address
 #pathc="../Data/Covid Tracking State Data/"
 if platform.system() == "Windows":
     fileName.replace("/", "\\")
