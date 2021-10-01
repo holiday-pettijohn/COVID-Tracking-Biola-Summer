@@ -55,7 +55,6 @@ def LoadCountryNormal(countryName): #load the country data with typical processi
     totalI = totalI/pop
     D = D/pop
     V = V/pop
-    totalI = totalI/pop
     
     modNewI = process.scaleNewInfections(newI, tests) #scale by tests
     
