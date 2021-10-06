@@ -87,11 +87,12 @@ def getParams(I, consts, normalWeight=1, slopeWeight=0, wDecay=1, skip=0, random
     bestError = 10e10 #arbitrary large value
     
     for i in range(randomIterCount):
-        
+        print("Iter: ", i, end="")
         newParams = startFunc(consts)
         newParams = opt.minimize(errFunc, newParams, (consts, normalWeight, slopeWeight, wDecay, skip, I), method=method)['x']
         newError = errFunc(newParams, consts, normalWeight, slopeWeight, wDecay, skip, I)
     
+        print("\r               \r", end="") #go back to the start of the line and write over
         if(newError < bestError):
             bestError = newError
             bestParams = newParams
@@ -214,16 +215,17 @@ def getParamsB1(I, consts, normalWeight=1, slopeWeight=0, wDecay=1, skip=0, rand
     bestParams = startFuncB1(consts)
     bestError = 10e10 #arbitrary large value
     for i in range(randomIterCount):
-        
+        print("Iter: ", i, end="")
         newParams = startFuncB1(consts)
         newParams = opt.minimize(errFuncB1, newParams, (consts, normalWeight, slopeWeight, wDecay, skip, I), method=method)['x']
         newError = errFuncB1(newParams, consts, normalWeight, slopeWeight, wDecay, skip, I)
     
+        print("\r               \r", end="") #go back to the start of the line and write over
         if(newError < bestError):
             bestError = newError
             bestParams = newParams
             print(i, "New best error: ", bestError)
-            
+
     return bestParams
 
 
@@ -329,11 +331,12 @@ def getParamsB2(I, consts, normalWeight=1, slopeWeight=0, wDecay=1, skip=0, rand
     bestParams = startFuncB2(consts)
     bestError = 10e10 #arbitrary large value
     for i in range(randomIterCount):
-        
+        print("Iter: ", i, end="")
         newParams = startFuncB2(consts)
         newParams = opt.minimize(errFuncB2, newParams, (consts, normalWeight, slopeWeight, wDecay, skip, I), method=method)['x']
         newError = errFuncB2(newParams, consts, normalWeight, slopeWeight, wDecay, skip, I)
     
+        print("\r               \r", end="") #go back to the start of the line and write over
         if(newError < bestError):
             bestError = newError
             bestParams = newParams
@@ -442,11 +445,12 @@ def getParamsG0(I, consts, normalWeight=1, slopeWeight=0, wDecay=1, skip=0, rand
     bestParams = startFuncG0(consts)
     bestError = 10e10 #arbitrary large value
     for i in range(randomIterCount):
-        
+        print("Iter: ", i, end="")
         newParams = startFuncG0(consts)
         newParams = opt.minimize(errFuncG0, newParams, (consts, normalWeight, slopeWeight, wDecay, skip, I), method=method)['x']
         newError = errFuncG0(newParams, consts, normalWeight, slopeWeight, wDecay, skip, I)
     
+        print("\r               \r", end="") #go back to the start of the line and write over
         if(newError < bestError):
             bestError = newError
             bestParams = newParams
@@ -512,11 +516,12 @@ def getParamsConst(I, consts, normalWeight=1, slopeWeight=0, wDecay=1, skip=0, r
     bestParams = startFuncConst(consts)
     bestError = 10e10 #arbitrary large value
     for i in range(randomIterCount):
-        
+        print("Iter: ", i, end="")
         newParams = startFuncConst(consts)
         newParams = opt.minimize(errFuncConst, newParams, (consts, normalWeight, slopeWeight, wDecay, skip, I), method=method)['x']
         newError = errFuncConst(newParams, consts, normalWeight, slopeWeight, wDecay, skip, I)
     
+        print("\r               \r", end="") #go back to the start of the line and write over
         if(newError < bestError):
             bestError = newError
             bestParams = newParams
