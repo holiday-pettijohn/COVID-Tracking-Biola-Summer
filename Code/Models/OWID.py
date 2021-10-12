@@ -51,6 +51,8 @@ def LoadCountryNormal(countryName): #load the country data with typical processi
     
     pop = pop[0] #get as a number, instead of a list
     
+    totalIScaler = totalI[-1]/pop #the total infected at the end of the period (percentage)
+    
     #change values so that S+I+R+D+V = 1
     totalI = totalI/pop
     D = D/pop
@@ -87,13 +89,16 @@ def LoadCountryNormal(countryName): #load the country data with typical processi
     while(I[sD] < .001):
         sD = sD+1
     
-    return dates[sD:],I[sD:],R[sD:],D[sD:],V[sD:] #current infections, recoveries, deaths, vaccinations
+    return dates[sD:],I[sD:],R[sD:],D[sD:],V[sD:], totalIScaler #current infections, recoveries, deaths, vaccinations
     
 def LoadCountryNormalDeaths(countryName, shiftAmount=15): #load the country data with typical processing via deaths
     dates, countryData = LoadCountry(countryName, selectColumns=[4, 7, 36, 46])
     [totalI, D, V, pop] = countryData
     
     pop = pop[0] #get as a number, instead of a list
+    
+    totalIScaler = totalI[-1]/pop #the total infected at the end of the period (percentage)
+    
     #change values so that S+I+R+D+V = 1
     D = D/pop
     V = V/pop
@@ -115,7 +120,7 @@ def LoadCountryNormalDeaths(countryName, shiftAmount=15): #load the country data
     while(I[sD] < .001):
         sD = sD+1
     
-    return dates[sD:],I[sD:],R[sD:],D[sD:],V[sD:] #current infections, recoveries, deaths, vaccinations
+    return dates[sD:],I[sD:],R[sD:],D[sD:],V[sD:], totalIScaler #current infections, recoveries, deaths, vaccinations
                                  
                                      
 # 0 	iso_code

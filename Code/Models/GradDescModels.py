@@ -60,7 +60,7 @@ def simFunc(params, consts, giveA=False): #option to return A and I
 
 
 #x is the starting params, args = (consts, y)
-def errFunc(params, consts, normalWeight, slopeWeight, wDecay, skip, y):
+def errFunc(params, consts, normalWeight, slopeWeight, wDecay, lastDay, skip, y):
     x = simFunc(params, consts)
     
     error = 0
@@ -68,6 +68,8 @@ def errFunc(params, consts, normalWeight, slopeWeight, wDecay, skip, y):
         for t in range(skip,len(y)):
             error = error + ((y[t] - x[t])**2)*wDecay**(len(y)-t+1) #squared error
         error = error / len(y) # / T, average error
+        
+        error = error + lastDay * ((y[-1] - x[-1])**2) #add error of the last day
     
     
     slopeError = 0
@@ -77,21 +79,24 @@ def errFunc(params, consts, normalWeight, slopeWeight, wDecay, skip, y):
         for t in range(skip,len(dy)):
             slopeError = slopeError +  ((dy[t] - dx[t])**2)*wDecay**(len(dy)-t+1) #squared error
         slopeError = slopeError / len(dy) # / T, average error
+        
+        slopeError = slopeError + lastDay * ((dy[-1] - dx[-1])**2) #add error of the last day
 
     return error*normalWeight + slopeError*slopeWeight
 
 
 
-def getParams(I, consts, normalWeight=1, slopeWeight=0, wDecay=1, skip=0, randomIterCount=100, method="SLSQP"):
+def getParams(I, consts, normalWeight=1, slopeWeight=0, wDecay=1, lastDay=0, skip=0, randomIterCount=100, method="SLSQP"):
     bestParams = startFunc(consts)
     bestError = 10e10 #arbitrary large value
     
     for i in range(randomIterCount):
-        
+        print("Iter: ", i, end="")
         newParams = startFunc(consts)
-        newParams = opt.minimize(errFunc, newParams, (consts, normalWeight, slopeWeight, wDecay, skip, I), method=method)['x']
-        newError = errFunc(newParams, consts, normalWeight, slopeWeight, wDecay, skip, I)
+        newParams = opt.minimize(errFunc, newParams, (consts, normalWeight, slopeWeight, wDecay, lastDay, skip, I), method=method)['x']
+        newError = errFunc(newParams, consts, normalWeight, slopeWeight, wDecay, lastDay, skip, I)
     
+        print("\r               \r", end="") #go back to the start of the line and write over
         if(newError < bestError):
             bestError = newError
             bestParams = newParams
@@ -214,16 +219,17 @@ def getParamsB1(I, consts, normalWeight=1, slopeWeight=0, wDecay=1, skip=0, rand
     bestParams = startFuncB1(consts)
     bestError = 10e10 #arbitrary large value
     for i in range(randomIterCount):
-        
+        print("Iter: ", i, end="")
         newParams = startFuncB1(consts)
         newParams = opt.minimize(errFuncB1, newParams, (consts, normalWeight, slopeWeight, wDecay, skip, I), method=method)['x']
         newError = errFuncB1(newParams, consts, normalWeight, slopeWeight, wDecay, skip, I)
     
+        print("\r               \r", end="") #go back to the start of the line and write over
         if(newError < bestError):
             bestError = newError
             bestParams = newParams
             print(i, "New best error: ", bestError)
-            
+
     return bestParams
 
 
@@ -288,7 +294,7 @@ def simFuncB2(params, consts, giveA=False): #option to return A and I
     return I
     
 #x is the starting params, args = (consts, y)
-def errFuncB2(params, consts, normalWeight, slopeWeight, wDecay, skip, y):
+def errFuncB2(params, consts, normalWeight, slopeWeight, wDecay, lastDay, skip, y):
 
     x = simFuncB2(params, consts)
     
@@ -297,6 +303,8 @@ def errFuncB2(params, consts, normalWeight, slopeWeight, wDecay, skip, y):
         for t in range(skip,len(y)):
             error = error + ((y[t] - x[t])**2)*wDecay**(len(y)-t+1) #squared error
         error = error / len(y) # / T, average error
+        
+        error = error + lastDay * ((y[-1] - x[-1])**2) #add error of the last day
     
     slopeError = 0
     if(slopeWeight!=0):
@@ -305,6 +313,8 @@ def errFuncB2(params, consts, normalWeight, slopeWeight, wDecay, skip, y):
         for t in range(skip,len(dy)):
             slopeError = slopeError +  ((dy[t] - dx[t])**2)*wDecay**(len(dy)-t+1) #squared error
         slopeError = slopeError / len(dy) # / T, average error
+        
+        slopeError = slopeError + lastDay * ((dy[-1] - dx[-1])**2) #add error of the last day
 
     return error*normalWeight + slopeError*slopeWeight
 
@@ -325,15 +335,16 @@ def startFuncB2(consts):
     
     return params
 
-def getParamsB2(I, consts, normalWeight=1, slopeWeight=0, wDecay=1, skip=0, randomIterCount=100, method="SLSQP"):
+def getParamsB2(I, consts, normalWeight=1, slopeWeight=0, wDecay=1, lastDay=0, skip=0, randomIterCount=100, method="SLSQP"):
     bestParams = startFuncB2(consts)
     bestError = 10e10 #arbitrary large value
     for i in range(randomIterCount):
-        
+        print("Iter: ", i, end="")
         newParams = startFuncB2(consts)
-        newParams = opt.minimize(errFuncB2, newParams, (consts, normalWeight, slopeWeight, wDecay, skip, I), method=method)['x']
-        newError = errFuncB2(newParams, consts, normalWeight, slopeWeight, wDecay, skip, I)
+        newParams = opt.minimize(errFuncB2, newParams, (consts, normalWeight, slopeWeight, wDecay, lastDay, skip, I), method=method)['x']
+        newError = errFuncB2(newParams, consts, normalWeight, slopeWeight, wDecay, lastDay, skip, I)
     
+        print("\r               \r", end="") #go back to the start of the line and write over
         if(newError < bestError):
             bestError = newError
             bestParams = newParams
@@ -442,11 +453,12 @@ def getParamsG0(I, consts, normalWeight=1, slopeWeight=0, wDecay=1, skip=0, rand
     bestParams = startFuncG0(consts)
     bestError = 10e10 #arbitrary large value
     for i in range(randomIterCount):
-        
+        print("Iter: ", i, end="")
         newParams = startFuncG0(consts)
         newParams = opt.minimize(errFuncG0, newParams, (consts, normalWeight, slopeWeight, wDecay, skip, I), method=method)['x']
         newError = errFuncG0(newParams, consts, normalWeight, slopeWeight, wDecay, skip, I)
     
+        print("\r               \r", end="") #go back to the start of the line and write over
         if(newError < bestError):
             bestError = newError
             bestParams = newParams
@@ -455,3 +467,74 @@ def getParamsG0(I, consts, normalWeight=1, slopeWeight=0, wDecay=1, skip=0, rand
     return bestParams
 
 ##################################################### END ### Functions for fitting with multiple gamma0's
+
+
+##################################################### Functions for fitting with constant parameters
+
+def simFuncConst(params, consts):
+
+    dayNum = consts[0]
+    
+    I = np.zeros((dayNum))
+    I[0] = params[0]
+    
+    gamma = params[1]
+    beta = params[2]
+    #iterate the arrays using the definition K' and I'
+    for t in range(len(I)-1): #define I and K on range [1, length)
+        
+        diffI = beta*I[t] - gamma*I[t]
+        I[t+1] = diffI + I[t]
+    return I
+    
+#x is the starting params, args = (consts, y)
+def errFuncConst(params, consts, normalWeight, slopeWeight, wDecay, skip, y):
+
+    x = simFuncConst(params, consts)
+    
+    error = 0
+    if(normalWeight!=0):
+        for t in range(skip,len(y)):
+            error = error + ((y[t] - x[t])**2)*wDecay**(len(y)-t+1) #squared error
+        error = error / len(y) # / T, average error
+    
+    slopeError = 0
+    if(slopeWeight!=0):
+        dy = np.diff(y)
+        dx = np.diff(x)
+        for t in range(skip,len(dy)):
+            slopeError = slopeError +  ((dy[t] - dx[t])**2)*wDecay**(len(dy)-t+1) #squared error
+        slopeError = slopeError / len(dy) # / T, average error
+
+    return error*normalWeight + slopeError*slopeWeight
+
+
+#param list is I(0), gamma, beta
+#I' = beta*I - gamma*I
+def startFuncConst(consts):
+    
+    params = np.zeros(3)
+    params[0] = consts[1] #10e-10 + random.random()*.01 #I(0), between 0 and .1 percent of the population, avoid 0
+    params[1] = .1 + random.random()*.4 #gamma, infect to recov+dead
+    params[2] = .2 + random.random()*.4 #beta0, ceiling infectRate - floor infect rate
+    
+    return params
+
+def getParamsConst(I, consts, normalWeight=1, slopeWeight=0, wDecay=1, skip=0, randomIterCount=100, method="SLSQP"):
+    bestParams = startFuncConst(consts)
+    bestError = 10e10 #arbitrary large value
+    for i in range(randomIterCount):
+        print("Iter: ", i, end="")
+        newParams = startFuncConst(consts)
+        newParams = opt.minimize(errFuncConst, newParams, (consts, normalWeight, slopeWeight, wDecay, skip, I), method=method)['x']
+        newError = errFuncConst(newParams, consts, normalWeight, slopeWeight, wDecay, skip, I)
+    
+        print("\r               \r", end="") #go back to the start of the line and write over
+        if(newError < bestError):
+            bestError = newError
+            bestParams = newParams
+            print(i, "New best error: ", bestError)
+            
+    return bestParams
+
+##################################################### END ### Functions for fitting with constant parameters
