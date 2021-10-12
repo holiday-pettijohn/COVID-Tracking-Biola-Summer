@@ -538,3 +538,90 @@ def getParamsConst(I, consts, normalWeight=1, slopeWeight=0, wDecay=1, skip=0, r
     return bestParams
 
 ##################################################### END ### Functions for fitting with constant parameters
+
+
+
+
+#fit last parameters
+
+#consts = [[normal params], kappa1, kappa2, kappa3, beta1, beta2, beta3]
+#params = [A(0), I(0)]
+
+
+def startFuncEnd(consts):
+    params = np.zeros(8)
+    params[0] = .001 + consts[0][1] #A(0), between 0 and 10 percent of the population
+    params[1] = consts[0][1] #10e-10 + random.random()*.01 #I(0), between 0 and .1 percent of the population, avoid 0
+    return params
+
+def getParamsEnd(I, consts, normalWeight=1, slopeWeight=0, wDecay=1, lastDay=0, skip=0, randomIterCount=100, method="SLSQP"):
+    bestParams = startFuncEnd(consts)
+    bestError = 10e10 #arbitrary large value
+    for i in range(randomIterCount):
+        print("Iter: ", i, end="")
+        newParams = startFuncEnd(consts)
+        newParams = opt.minimize(errFuncEnd, newParams, (consts, normalWeight, slopeWeight, wDecay, lastDay, skip, I), method=method)['x']
+        newError = errFuncEnd(newParams, consts, normalWeight, slopeWeight, wDecay, lastDay, skip, I)
+    
+        print("\r               \r", end="") #go back to the start of the line and write over
+        if(newError < bestError):
+            bestError = newError
+            bestParams = newParams
+            print(i, "New best error: ", bestError)
+            
+    return bestParams
+
+
+def simFuncEnd(params, consts, giveA=False): #option to return A and  I
+        dayNum = consts[0][0]
+        A = np.zeros((dayNum))
+        I = np.zeros((dayNum))
+
+        A[0] = params[0]
+        I[0] = params[1]
+
+        gamma0 = consts[1]
+        gamma1 = consts[2]
+        nu = consts[3]
+
+        beta = consts[4:]
+
+        #print(params)
+
+        #iterate the arrays using the definition K' and I'
+        for t in range(len(I)-1): #define I and K on range [1, length)
+            diffA = (beta[0]/ (1 + (beta[1]*I[t])**(beta[2]) ) )*A[t] - gamma0*A[t]
+            diffI = gamma1*A[t] - nu*I[t]
+
+            A[t+1] = diffA + A[t]
+            I[t+1] = diffI + I[t]
+
+        if(giveA):
+            return A,I
+
+        return I #I is the data generated
+    
+   #x is the starting params, args = (consts, y)
+def errFuncEnd(params, consts, normalWeight, slopeWeight, wDecay, lastDay, skip, y):
+    x = simFuncEnd(params, consts)
+    
+    error = 0
+    if(normalWeight!=0):
+        for t in range(skip,len(y)):
+            error = error + ((y[t] - x[t])**2)*wDecay**(len(y)-t+1) #squared error
+        error = error / len(y) # / T, average error
+        
+        error = error + lastDay * ((y[-1] - x[-1])**2) #add error of the last day
+    
+    
+    slopeError = 0
+    if(slopeWeight!=0):
+        dy = np.diff(y)
+        dx = np.diff(x)
+        for t in range(skip,len(dy)):
+            slopeError = slopeError +  ((dy[t] - dx[t])**2)*wDecay**(len(dy)-t+1) #squared error
+        slopeError = slopeError / len(dy) # / T, average error
+        
+        slopeError = slopeError + lastDay * ((dy[-1] - dx[-1])**2) #add error of the last day
+
+    return error*normalWeight + slopeError*slopeWeight
