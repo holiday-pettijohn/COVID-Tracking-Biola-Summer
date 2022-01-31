@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.stats import lognorm
 import csv
 
 #this model is for simple pre processing steps like approximating recovered and vaccinations
@@ -21,7 +22,47 @@ def scaleNewInfections(newInfect, newTests):
     scaledInfections = scaledInfections * scalingValue #scale somewhat appropriately
     
     return scaledInfections
-        
+
+
+
+def REMEDID(D): #get new infections from new deaths (not total)
+    xData = np.linspace(0,100,100)
+    ip = getLogNorm(xData, 5.6,5)
+    iod = getLogNorm(xData, 14.5,13.2)
+    dp = np.convolve(ip, iod)[:len(ip)] * (xData[1]-xData[0]) #curves * dx, dx should be one
+    
+    approxI = np.zeros(len(D)) #new infections
+    for i in range(len(D)-len(dp)+1):
+        approxI[i] = sum(D[i:i+len(dp)]*dp)
+    for i in range(1,len(dp)):
+        approxI[len(D)-len(dp)+i] = sum(D[len(D)-len(dp)+i:]*dp[:-i])
+    return approxI
+
+    
+def getLogNorm(xData, mean, median, iters=250): #find a lognorm curve based on mean and median
+    minStd = .1
+    maxStd = .6
+
+    std = 0
+    bestMean = 0
+    stdList = np.arange(minStd, maxStd,(minStd+maxStd)/iters)
+    for currStd in stdList: #basic search
+        #figure out mean based on std and median
+        yData = lognorm.pdf(xData,currStd,scale=median)
+        yDataMod = yData/sum(yData) #normalized
+        currMean = sum(yDataMod*xData)
+
+        if(abs(currMean-mean) < abs(bestMean-mean)):
+            bestMean = currMean
+            std = currStd
+
+    yData = lognorm.pdf(xData,std,scale=median)
+    yDataMod = yData/sum(yData) #normalized
+    currMean = sum(yDataMod*xData)
+    #print(std, currMean, mean)
+
+    return yData
+
 
 def reverseDiff(diffList):
     newList = np.zeros(len(diffList))
